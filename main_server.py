@@ -12,7 +12,7 @@ def main():
 
 
     ##### echange cle secret ######
-    echange.echange_cles_server
+    echange.echange_cles_server()
     
 
 if __name__ == "__main__":
