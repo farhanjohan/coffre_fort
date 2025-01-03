@@ -5,7 +5,7 @@ import echange
 def main():
 
     #### connection ###
-    connect.client_connect("","")
+    connect.client_connect("25.15.154.124","")
 
     ##### ehchange cle secret #####
     echange.echange_cles_client()
