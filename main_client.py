@@ -1,7 +1,11 @@
-import socket
+import connect
 
-def client_connect(ipadd):
+def main():
 
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((ipadd, 5000))  # Connect to server at localhost:5000
-    print("Connected to the server.")
+    #### connection ###
+    connect.client_connect("")
+
+    
+
+if __name__ == "__main__":
+    main()
