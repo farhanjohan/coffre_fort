@@ -1,5 +1,6 @@
 import random
 import connect
+import socket
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
@@ -43,7 +44,8 @@ def echange_cles_server():
     server_private_key = generate_private_key(prime)
     server_public_key = compute_public_key(prime, base, server_private_key)
 
-
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn, addr = server.accept()
     # Step 1: Send public key to client
     conn.send(f"{prime},{base},{server_public_key}".encode())
 
