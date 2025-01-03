@@ -44,9 +44,16 @@ def echange_cles_server():
     server_private_key = generate_private_key(prime)
     server_public_key = compute_public_key(prime, base, server_private_key)
 
+    # Step 1: Create, bind, and listen on the server socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn, addr = server.accept()
-    # Step 1: Send public key to client
+    server.bind(("25.15.154.124", 12345))  # Bind to all interfaces on port 12345
+    server.listen(1)  # Listen for incoming connections
+    print("Server is listening on port 12345...")
+
+    conn, addr = server.accept()  # Accept a connection
+    print(f"Connected to {addr}")
+
+    # Step 2: Send public key to client
     conn.send(f"{prime},{base},{server_public_key}".encode())
 
     # Step 2: Receive client's public key

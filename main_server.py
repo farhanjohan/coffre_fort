@@ -10,9 +10,6 @@ def main():
     connect.server_connect("25.15.154.124","6000")
 
 
-
-    ##### echange cle secret ######
-    echange.echange_cles_server()
     
 
 if __name__ == "__main__":
