@@ -7,6 +7,14 @@ def client_connect(ipadd,port):
     client.connect((ipadd, 6000))  # Connect to server at localhost:6000
     print("Connected to the server.")
 
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+    client.send(f"{username}::{password}".encode())
+
+    response = client.recv(1024).decode()
+    if response == "AUTH_SUCCESS":
+        print("Authentication successful.")
+
 
 def server_connect(ipadd,port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
