@@ -2,17 +2,22 @@ import random
 import user_management
 import derivation
 import echange
+import server
+import socket
 
 def main():
-    # 1) Enrollement
+
+    #### connection ####
+
+    #  Enrollement
     user_management.create_account()
 
-    # 2) Dérivation de la clé (KDF)
+    # Dérivation de la clé (KDF)
     derivation.derive_key()
 
-    # 3) authentification double sens
+    #  authentification double sens
 
-    # 4) echange cles secret
+    #  echange cles secret
     p = 23 ###### on peut changer 
     g = 5
 
