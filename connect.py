@@ -36,7 +36,7 @@ def client_connect(ipadd,port):
         print("Client: Authentication successful!")
     else:
         print("Client: Authentication failed.")
-    client.close()
+    
 
 
 def server_connect(ipadd,port):
@@ -84,7 +84,6 @@ def server_connect(ipadd,port):
             conn.send("AUTH_FAIL".encode())
             print(f"Server: Authentication failed for {username}.")
     finally:
-        conn.close()
-        server.close()
+        #server.close()
 
 
