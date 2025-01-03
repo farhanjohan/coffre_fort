@@ -1,5 +1,5 @@
 import socket
-form auth import *
+from auth import *
 
 def client_connect(ipadd,port):
 
@@ -24,6 +24,10 @@ def server_connect(ipadd,port):
 
     conn, addr = server.accept()
     print(f"Server: Connected to {addr}")
+
+    #receive password and username
+    data = conn.recv(1024).decode()
+    username, password = data.split("::")
 
     # Authenticate the user
     vault_path = authenticate_user(username, password)

@@ -7,7 +7,7 @@ import connect
 def main():
 
     #### connection ####
-    connect.server_connect("","")
+    connect.server_connect("25.15.154.124","6000")
 
 
 
