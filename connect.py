@@ -84,6 +84,7 @@ def server_connect(ipadd,port):
             conn.send("AUTH_FAIL".encode())
             print(f"Server: Authentication failed for {username}.")
     finally:
+        return
         #server.close()
 
 
