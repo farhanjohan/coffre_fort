@@ -61,7 +61,7 @@ def server_connect(ipadd,port):
         # Receive the public key and commitment (M) from the client
         data = conn.recv(1024).decode()
         cle_publique, M = map(int, data.split(","))
-        print(f"Server: Received public key: {cle_publique}, Commitment: {M}")
+        print(f"Server: Received public key and Commitment: {M}")
 
         # Generate and send a challenge to the client
         challenge = secrets.randbelow(zkp.p - 1)
