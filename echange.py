@@ -35,7 +35,7 @@ def echange_cles_client():
 
 def echange_cles_server():
 
-    ######### ON PEUT CHANGER LEC P ET B ###########
+    ######### ON PEUT CHANGER LES P ET B ###########
 
     prime = 23  # Public prime number
     base = 5    # Public base
