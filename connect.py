@@ -1,4 +1,5 @@
 import socket
+form auth import *
 
 def client_connect(ipadd,port):
 
@@ -15,6 +16,12 @@ def server_connect(ipadd,port):
 
     conn, addr = server.accept()
     print(f"Server: Connected to {addr}")
+
+    # Authenticate the user
+    vault_path = authenticate_user(username, password)
+    if vault_path:
+        conn.send("AUTH_SUCCESS".encode())
+        print(f"User {username} authenticated.")
 
     conn.close()
     server.close()
