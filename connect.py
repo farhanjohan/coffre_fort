@@ -22,7 +22,7 @@ def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
         while chunk := infile.read(chunk_size):  # Read encrypted chunks
             encrypted_int = int.from_bytes(chunk, byteorder="big")
             decrypted_int = pow(encrypted_int, d, n)  # Decrypt: m = c^d mod n
-            decrypted_chunk = decrypted_int.to_bytes(chunk_size - 1, byteorder="big").rstrip(b"\x00")  # Remove padding
+            decrypted_chunk = decrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big").rstrip(b"\x00")  # Remove padding
             decrypted_data += decrypted_chunk
 
         # Write the final plaintext to the output file
