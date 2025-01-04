@@ -2,6 +2,7 @@ import random
 import connect
 import socket
 from auth import *
+from simplecobrafile import *
 import encryption
 import credentials
 
@@ -94,10 +95,23 @@ def client_connect(ipadd,port):
         selected_file = input("Enter the name of the file you want to open: ")
         client.send(selected_file.encode())
 
-        # Receive the file content
-        file_content = client.recv(1024).decode()
-        print(f"Content of {selected_file}:")
-        print(file_content)
+        # Receive the encrypted file content
+        encrypted_content = client.recv(1024 * 10)  # Adjust size as necessary
+        if encrypted_content == b"File not found.":
+            print("The requested file was not found on the server.")
+        else:
+            # Save the received encrypted file
+            received_encrypted_file = f"received_{selected_file}.cobra"
+            with open(received_encrypted_file, "wb") as f:
+                f.write(encrypted_content)
+            print(f"Encrypted file {received_encrypted_file} received.")
+
+            # Optionally decrypt the file
+            cobra = SimpleCOBRA(b'mysecretkey12345')  # Replace with the same key as the server
+            decrypted_file = f"decrypted_{selected_file}"
+            cobra.decrypt_file(received_encrypted_file, decrypted_file)
+            print(f"File decrypted and saved as {decrypted_file}.")
+
 
 
 def server_connect(ipadd,port):
@@ -225,13 +239,18 @@ def server_connect(ipadd,port):
             selected_file = conn.recv(1024).decode()
             file_path = os.path.join(user_dir, selected_file)
 
-            if os.path.exists(file_path):
-                with open(file_path, "r") as f:
-                    file_content = f.read()
-            else:
-                file_content = "File not found."
+        if os.path.exists(file_path):
+            encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
+            cobra = SimpleCOBRA(b'mysecretkey12345')  # a remplacer
+            cobra.encrypt_file(file_path, encrypted_file_path)
 
-            conn.send(file_content.encode())  # Send the content of the file
+            with open(encrypted_file_path, "rb") as f:
+                encrypted_content = f.read()
+
+            conn.send(encrypted_content)  # Send encrypted file content
+            print(f"Server: Encrypted file {encrypted_file_path} sent.")
+        else:
+            conn.send(b"File not found.")
        
     finally:
         return
