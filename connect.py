@@ -6,6 +6,23 @@ from simplecobrafile import *
 import encryption
 import credentials
 
+def encrypt_and_store_file(file_path, user_private_key, storage_dir):
+    # Ensure the storage directory exists
+    os.makedirs(storage_dir, exist_ok=True)
+
+    # Determine encrypted file path
+    encrypted_file_path = os.path.join(storage_dir, f"{os.path.basename(file_path)}.enc")
+
+    # Encrypt file content
+    with open(file_path, "rb") as file_in, open(encrypted_file_path, "wb") as file_out:
+        while chunk := file_in.read(64):  # RSA can only encrypt small chunks
+            encrypted_chunk = rsa_encrypt(user_private_key, chunk)
+            file_out.write(encrypted_chunk)
+
+    print(f"File encrypted and stored at {encrypted_file_path}.")
+    return encrypted_file_path
+
+
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
     return random.randint(2, prime - 2)
@@ -27,13 +44,6 @@ def client_connect(ipadd,port):
     username = input("Enter username: ")
     password = input("Enter password: ")
     client.send(f"{username}::{password}".encode())
-
-    response= client.recv(1024).decode()
-    while response == "username deja existe":
-        print("username deja existe")
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        client.send(f"{username}::{password}".encode())
 
     # Derive the private key from the password
     derived_key = sponge_hash(password)
@@ -87,7 +97,28 @@ def client_connect(ipadd,port):
     client.send(choice.encode())  # Send choice to server
 
     print("Choice sent to server. Awaiting response...")
-    if choice == "2":
+    if choice == "1":
+        # Prompt the client to specify the file to upload
+        file_to_upload = input("Enter the path of the file to upload: ")
+
+        # Ensure the file exists
+        if not os.path.exists(file_to_upload):
+            print("Error: File does not exist.")
+            client.send(b"FILE_NOT_FOUND")
+        else:
+
+            # Send the file name
+            file_name = os.path.basename(file_to_upload)
+            client.send(file_name.encode())
+            
+            # Send the file content
+            with open(file_to_upload, "rb") as file:
+                file_content = file.read()
+            client.sendall(file_content)
+
+            print(f"File '{file_name}' has been uploaded successfully.")
+ 
+    elif choice == "2":
         # Receive and display the list of files
         file_list = client.recv(1024).decode()
         print("Files in your repository:")
@@ -219,10 +250,42 @@ def server_connect(ipadd,port):
         choice = conn.recv(1024).decode()
         if choice == "1":
             print("Server: Client chose to upload a file.")
-            #####
+    
+            # Receive the file name
+            file_name = conn.recv(1024).decode()
+            print(f"Server: Receiving file '{file_name}'.")
+
+            # Receive the file content
+            file_content = b""
+            while chunk := conn.recv(1024):
+                file_content += chunk
+
+            # Save the file in the user's directory
+            user_dir = username
+            os.makedirs(user_dir, exist_ok=True)
+            file_path = os.path.join(user_dir, file_name)
+            
+            with open(file_path, "wb") as file:
+                file.write(file_content)
+            
+            print(f"Server: File '{file_name}' received and saved.")
+
+            # Encrypt the file using the user's private key
+            private_key_path = os.path.join(user_dir, "private_key.txt")
+            with open(private_key_path, "r") as priv_key_file:
+                private_key = priv_key_file.read()
+
+            d, n = map(int, private_key.split(","))
+            encrypted_file_path = f"{file_path}.enc"
+            encrypt_and_store_file(file_path, d, encrypted_file_path)
+
+            # Remove the plain file
+            os.remove(file_path)
+            print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
+
         elif choice == "2":
             print("Server: Client chose to open a file.")
-            user_dir = username  # Assuming user's directory is named after the username
+            user_dir = username 
 
             if os.path.exists(user_dir):
                 files = os.listdir(user_dir)
