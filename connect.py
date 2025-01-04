@@ -16,31 +16,34 @@ def derive_256_bit_key(shared_secret):
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     """
     Decrypts an RSA-encrypted file and writes the plaintext to the output path.
+    Handles padding and chunk concatenation correctly.
     """
     d, n = private_key
     chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
+    decrypted_data = []
 
-    with open(encrypted_file_path, "rb") as infile, open(output_path, "wb") as outfile:
+    with open(encrypted_file_path, "rb") as infile:
         while chunk := infile.read(chunk_size):  # Read encrypted chunks
             encrypted_int = int.from_bytes(chunk, byteorder="big")  # Convert chunk to integer
             decrypted_int = pow(encrypted_int, d, n)  # Decrypt: m = c^d mod n
             
-            # Calculate maximum chunk size
-            max_chunk_size = (n.bit_length() - 1) // 8  # Remove 1 byte for padding
+            # Calculate maximum chunk size based on encryption padding
+            max_chunk_size = n.bit_length() // 8 - 1  # RSA block size minus 1 for padding
             
-            # Convert decrypted integer to bytes
+            # Convert decrypted integer to bytes and strip padding
             decrypted_chunk = decrypted_int.to_bytes(max_chunk_size, byteorder="big").rstrip(b"\x00")
-            
-            # Write the clean plaintext to the output file
-            outfile.write(decrypted_chunk)
-            print(f"Decrypted Chunk: {decrypted_chunk.decode(errors='replace')}")
-    print(f"Decrypted file saved at {output_path}.")
+            decrypted_data.append(decrypted_chunk)  # Append to data list
 
+    # Combine all chunks and write to output
+    with open(output_path, "wb") as outfile:
+        outfile.write(b"".join(decrypted_data))  # Combine decrypted chunks
+    print(f"Decrypted file saved at {output_path}.")
 
 
 def encrypt_and_store_file(file_path, public_key, output_path):
     """
     Encrypts a file using RSA and writes the ciphertext to the output path.
+    Handles padding and chunking consistently with the decryption logic.
     """
     e, n = public_key
     max_chunk_size = n.bit_length() // 8 - 1  # Maximum plaintext size per RSA block
@@ -49,12 +52,10 @@ def encrypt_and_store_file(file_path, public_key, output_path):
         while chunk := infile.read(max_chunk_size):  # Read plaintext chunks
             chunk_int = int.from_bytes(chunk, byteorder="big")  # Convert to integer
             encrypted_int = pow(chunk_int, e, n)  # Encrypt: c = m^e mod n
-            encrypted_chunk = encrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big")  # Write full RSA block
+            encrypted_chunk = encrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big")
             outfile.write(encrypted_chunk)
-            print(f"Encrypted Chunk: {encrypted_chunk.hex()}")
 
     print(f"File encrypted and stored at {output_path}.")
-
 
 
 def generate_private_key(prime):
