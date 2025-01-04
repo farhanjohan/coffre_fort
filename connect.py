@@ -95,6 +95,7 @@ def client_connect(ipadd,port):
     newuser = client.recv(1024).decode()
 
     if newuser =="NEW_USER":
+        os.makedirs(username, exist_ok=True)
         # Génération des clés
         p = encryption.generate_large_prime()
         q = encryption.generate_large_prime()
