@@ -6,6 +6,13 @@ from simplecobrafile import *
 import encryption
 import credentials
 
+def derive_256_bit_key(shared_secret):
+    """Derives a 256-bit key from the shared secret."""
+    shared_secret_bytes = shared_secret.to_bytes((shared_secret.bit_length() + 7) // 8, byteorder="big")
+    while len(shared_secret_bytes) < 32:  # Ensure at least 32 bytes (256 bits)
+        shared_secret_bytes += shared_secret_bytes  # Repeat bytes if too short
+    return shared_secret_bytes[:32]  # Trim to 256 bits (32 bytes)
+
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     d, n = private_key
     decrypted_data = b""
@@ -99,6 +106,8 @@ def client_connect(ipadd,port):
     # Step 4: Compute shared secret
     shared_secret = compute_shared_secret(prime, server_public_key, client_private_key)
     print(f"Client: Shared secret is {shared_secret}")
+    key_256 = derive_256_bit_key(shared_secret)
+
     
     # Prompt the client for action
     print("\nWhat do you want to do?")
@@ -147,7 +156,7 @@ def client_connect(ipadd,port):
 
             # COBRA decrypt the file
             selected_file = os.path.splitext(selected_file)[0]
-            cobra = SimpleCOBRA(b'mysecretkey12345')  # Ensure this matches the server key
+            cobra = SimpleCOBRA(key_256)  # Ensure this matches the server key
             cobra_decrypted_content = bytearray()
             chunk_size = 16
             for i in range(0, len(encrypted_content), chunk_size):
@@ -274,6 +283,7 @@ def server_connect(ipadd,port):
         # Step 3: Compute shared secret
         shared_secret = compute_shared_secret(prime, client_public_key, server_private_key)
         print(f"Server: Shared secret is {shared_secret}")
+        key_256 = derive_256_bit_key(shared_secret)
 
         choice = conn.recv(1024).decode()
         if choice == "1":
@@ -332,7 +342,7 @@ def server_connect(ipadd,port):
 
         if os.path.exists(file_path):
             encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
-            cobra = SimpleCOBRA(b'mysecretkey12345')  # a remplacer
+            cobra = SimpleCOBRA(key_256)  # a remplacer
             cobra.encrypt_file(file_path, encrypted_file_path)
 
             with open(encrypted_file_path, "rb") as f:
