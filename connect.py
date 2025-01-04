@@ -141,18 +141,13 @@ def client_connect(ipadd,port):
             print(f"Encrypted content for '{selected_file}' received.")
 
             # COBRA decrypt the file
+            selected_file = os.path.splitext(selected_file)[0]
             cobra = SimpleCOBRA(b'mysecretkey12345')  # Ensure this matches the server key
             cobra_decrypted_content = bytearray()
             chunk_size = 16
             for i in range(0, len(encrypted_content), chunk_size):
                 chunk = encrypted_content[i:i + chunk_size]
                 cobra_decrypted_content.extend(cobra.decrypt_block(chunk))
-
-            # Save intermediate COBRA-decrypted content for debugging (optional)
-            intermediate_file = f"intermediate_{selected_file}.dec"
-            with open(intermediate_file, "wb") as f:
-                f.write(cobra_decrypted_content)
-            print(f"Intermediate COBRA-decrypted file saved as {intermediate_file}")
 
             # RSA decrypt the COBRA-decrypted content
             user_dir = username
@@ -162,10 +157,6 @@ def client_connect(ipadd,port):
 
             decrypted_file_path = os.path.join(user_dir, selected_file)
             decrypt_and_store_file(intermediate_file, private_key, decrypted_file_path)
-
-            # Optionally remove intermediate file
-            os.remove(intermediate_file)
-            print(f"File decrypted and saved as {decrypted_file_path}.")
 
 
 def server_connect(ipadd,port):
