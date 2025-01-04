@@ -6,6 +6,23 @@ from simplecobrafile import *
 import encryption
 import credentials
 
+def rsa_encrypt(public_key, plaintext):
+    """
+    Encrypts plaintext using RSA encryption with the provided public key.
+    
+    Args:
+        public_key (tuple): A tuple containing the public exponent `e` and modulus `n`.
+        plaintext (bytes): The data to encrypt.
+    
+    Returns:
+        bytes: The encrypted data.
+    """
+    e, n = public_key
+    plaintext_int = int.from_bytes(plaintext, byteorder='big')  # Convert plaintext to an integer
+    ciphertext_int = pow(plaintext_int, e, n)  # Perform RSA encryption: c = m^e mod n
+    ciphertext = ciphertext_int.to_bytes((ciphertext_int.bit_length() + 7) // 8, byteorder='big')
+    return ciphertext
+
 def encrypt_and_store_file(file_path, user_private_key, storage_dir):
     # Ensure the storage directory exists
     os.makedirs(storage_dir, exist_ok=True)
@@ -21,7 +38,6 @@ def encrypt_and_store_file(file_path, user_private_key, storage_dir):
 
     print(f"File encrypted and stored at {encrypted_file_path}.")
     return encrypted_file_path
-
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
