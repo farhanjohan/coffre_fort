@@ -6,12 +6,17 @@ from simplecobrafile import *
 import encryption
 import credentials
 
-def rsa_decrypt(private_key, ciphertext):
+def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     d, n = private_key
-    ciphertext_int = int.from_bytes(ciphertext, byteorder='big')  # Convert ciphertext to an integer
-    plaintext_int = pow(ciphertext_int, d, n)  # Perform RSA decryption: m = c^d mod n
-    plaintext = plaintext_int.to_bytes((plaintext_int.bit_length() + 7) // 8, byteorder='big')
-    return plaintext
+    chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
+    with open(encrypted_file_path, "rb") as infile, open(output_path, "wb") as outfile:
+        while chunk := infile.read(chunk_size):  # Read encrypted chunks
+            encrypted_int = int.from_bytes(chunk, byteorder="big")
+            decrypted_int = pow(encrypted_int, d, n)  # Decrypt: m = c^d mod n
+            decrypted_chunk = decrypted_int.to_bytes(chunk_size - 1, byteorder="big").rstrip(b"\x00")  # Remove padding
+            outfile.write(decrypted_chunk)  # Write plaintext chunk to output file
+    print(f"Decrypted content saved to {output_path}.")
+
 
 def encrypt_and_store_file(file_path, public_key, output_path):
     e, n = public_key
@@ -129,22 +134,38 @@ def client_connect(ipadd,port):
         client.send(selected_file.encode())
 
         # Receive the encrypted file content
-        encrypted_content = client.recv(1024 * 10)  # Adjust size as necessary
+        encrypted_content = client.recv(1024 * 10)  # Adjust size as needed
         if encrypted_content == b"File not found.":
             print("The requested file was not found on the server.")
         else:
-            # Save the received encrypted file
-            received_encrypted_file = f"received_{selected_file}.cobra"
-            with open(received_encrypted_file, "wb") as f:
-                f.write(encrypted_content)
-            print(f"Encrypted file {received_encrypted_file} received.")
+            print(f"Encrypted content for '{selected_file}' received.")
 
-            # Optionally decrypt the file
-            cobra = SimpleCOBRA(b'mysecretkey12345')  # Replace with the same key as the server
-            decrypted_file = f"decrypted_{selected_file}"
-            cobra.decrypt_file(received_encrypted_file, decrypted_file)
-            print(f"File decrypted and saved as {decrypted_file}.")
+            # COBRA decrypt the file
+            cobra = SimpleCOBRA(b'mysecretkey12345')  # Ensure this matches the server key
+            cobra_decrypted_content = bytearray()
+            chunk_size = 16
+            for i in range(0, len(encrypted_content), chunk_size):
+                chunk = encrypted_content[i:i + chunk_size]
+                cobra_decrypted_content.extend(cobra.decrypt_block(chunk))
 
+            # Save intermediate COBRA-decrypted content for debugging (optional)
+            intermediate_file = f"intermediate_{selected_file}.dec"
+            with open(intermediate_file, "wb") as f:
+                f.write(cobra_decrypted_content)
+            print(f"Intermediate COBRA-decrypted file saved as {intermediate_file}")
+
+            # RSA decrypt the COBRA-decrypted content
+            user_dir = username
+            private_key_path = os.path.join(user_dir, "private_key.txt")
+            with open(private_key_path, "r") as priv_key_file:
+                private_key = tuple(map(int, priv_key_file.read().split(",")))
+
+            decrypted_file_path = os.path.join(user_dir, selected_file)
+            decrypt_and_store_file(intermediate_file, private_key, decrypted_file_path)
+
+            # Optionally remove intermediate file
+            os.remove(intermediate_file)
+            print(f"File decrypted and saved as {decrypted_file_path}.")
 
 
 def server_connect(ipadd,port):
@@ -314,6 +335,7 @@ def server_connect(ipadd,port):
 
             conn.send(encrypted_content)  # Send encrypted file content
             print(f"Server: Encrypted file {encrypted_file_path} sent.")
+            os.remove(encrypted_file_path)
         else:
             conn.send(b"File not found.")
        
