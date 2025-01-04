@@ -92,34 +92,28 @@ def client_connect(ipadd,port):
     password = input("Enter password: ")
     client.send(f"{username}::{password}".encode())
 
-    response = client.recv(1024).decode()
-    if response == "NEW_USER":
-        print("New user creation initiated...")
+    #newuser = client.recv(1024).decode()
+    #if newuser =="NEW_USER":
+        #os.makedirs(username, exist_ok=True)
+        ## Génération des clés
+        #p = encryption.generate_large_prime()
+        #q = encryption.generate_large_prime()
+        #n = p * q
+        #phi = (p - 1) * (q - 1)
+
+        ## Clé publique (e, n)
+        #e = 65537
+        #while encryption.gcd(e, phi) != 1:
+            #e += 2
+
+        ## Clé privée (d, n)
+        #d = encryption.mod_inverse(e, phi)
         
-        # Receive the public key from the server
-        public_key_data = client.recv(1024).decode()
-        e, n = map(int, public_key_data.split(","))
-        print(f"Client: Received public key -> e: {e}, n: {n}")
-
-        # Save the public key locally
-        os.makedirs(username, exist_ok=True)
-        public_key_path = os.path.join(username, "public_key.txt")
-        with open(public_key_path, "w") as pub_file:
-            pub_file.write(f"{e},{n}")
-
-        # Generate the private key locally
-        p = encryption.generate_large_prime()
-        q = encryption.generate_large_prime()
-        n = p * q
-        phi = (p - 1) * (q - 1)
-        d = encryption.mod_inverse(e, phi)
-
-        # Save the private key locally
-        private_key_path = os.path.join(username, "private_key.txt")
-        with open(private_key_path, "w") as priv_file:
-            priv_file.write(f"{d},{n}")
-        print(f"Client: Private key saved locally at '{private_key_path}'.")
-
+        ## Save keys locally
+        #with open(f"{username}/public_key.txt", "w") as pub:
+            #pub.write(f"{e},{n}")
+        #with open(f"{username}/private_key.txt", "w") as priv:
+            #priv.write(f"{d},{n}")
 
     # Derive the private key from the password
     derived_key = sponge_hash(password)
@@ -257,47 +251,44 @@ def server_connect(ipadd,port):
         user_credentials = credentials.load_user_credentials()
 
         #if username in user_credentials:
-            
+            #conn.send("OLD_USER".encode())
         
         if username not in user_credentials:
-            print(f"User does not exist. Creating a new one...")
+            print(f"user not exist, creating a new one")
             conn.send("NEW_USER".encode())
             os.makedirs(username, exist_ok=True)
 
-            # Generate RSA key pair
+            # Génération des clés
             p = encryption.generate_large_prime()
             q = encryption.generate_large_prime()
             n = p * q
             phi = (p - 1) * (q - 1)
 
-            # Public key (e, n)
+            # Clé publique (e, n)
             e = 65537
             while encryption.gcd(e, phi) != 1:
                 e += 2
 
-            # Private key (d, n)
+            #Clé privée (d, n)
             d = encryption.mod_inverse(e, phi)
 
-            # Save the public key on the server side
-            public_key_path = os.path.join(username, "public_key.txt")
-            with open(public_key_path, "w") as pub:
+            # Save keys locally
+            with open(f"{username}/public_key.txt", "w") as pub:
                 pub.write(f"{e},{n}")
-            print(f"Server: Public key for user '{username}' saved.")
+            with open(f"{username}/private_key.txt", "w") as priv:
+                priv.write(f"{d},{n}")
+            print("Clés générées avec succès !")
 
-            # Send the public key to the client to ensure they also have it
-            conn.send(f"{e},{n}".encode())
-
-            # Save user credentials (password hash and public key)
+            # Add to the in-memory dictionary
             user_credentials[username] = {
                 "password": password,
                 "public_key": (e, n),
+                "private_key": (d, n),
             }
 
-            # Save updated user credentials to a JSON file
+            # Save to JSON file
             credentials.save_user_credentials(user_credentials)
-            print(f"Server: User credentials saved for '{username}'.")
-        else:
-            conn.send("OLD_USER".encode())
+            print(f"Informations utilisateur enregistrées avec succès pour {username}.")
 
         # Derive the private key from the password
         derived_key = sponge_hash(password)
