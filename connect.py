@@ -92,28 +92,29 @@ def client_connect(ipadd,port):
     password = input("Enter password: ")
     client.send(f"{username}::{password}".encode())
 
-    #newuser = client.recv(1024).decode()
-    #if newuser =="NEW_USER":
-        #os.makedirs(username, exist_ok=True)
-        ## Génération des clés
-        #p = encryption.generate_large_prime()
-        #q = encryption.generate_large_prime()
-        #n = p * q
-        #phi = (p - 1) * (q - 1)
+    response = client.recv(1024).decode()
+    if response == "NEW_USER":
+        print("New user detected. initiate creation")
 
-        ## Clé publique (e, n)
-        #e = 65537
-        #while encryption.gcd(e, phi) != 1:
-            #e += 2
+        # Receive public and private keys from the server
+        keys_data = client.recv(2048)  # Adjust size as needed
+        public_key_data, private_key_data = keys_data.split(b"::")
 
-        ## Clé privée (d, n)
-        #d = encryption.mod_inverse(e, phi)
-        
-        ## Save keys locally
-        #with open(f"{username}/public_key.txt", "w") as pub:
-            #pub.write(f"{e},{n}")
-        #with open(f"{username}/private_key.txt", "w") as priv:
-            #priv.write(f"{d},{n}")
+        # Create a directory for the user
+        os.makedirs(username, exist_ok=True)
+        public_key_path = os.path.join(username, "public_key.txt")
+        private_key_path = os.path.join(username, "private_key.txt")
+
+        # Save the keys locally
+        with open(public_key_path, "wb") as pub:
+            pub.write(public_key_data)
+        with open(private_key_path, "wb") as priv:
+            priv.write(private_key_data)
+        print(f"Keys saved successfully in '{username}' directory.")
+
+        # Send acknowledgment to the server
+        client.send("KEYS_RECEIVED".encode())
+
 
     # Derive the private key from the password
     derived_key = sponge_hash(password)
@@ -254,32 +255,34 @@ def server_connect(ipadd,port):
             #conn.send("OLD_USER".encode())
         
         if username not in user_credentials:
-            print(f"user not exist, creating a new one")
+            print(f"User '{username}' does not exist, creating a new one.")
             conn.send("NEW_USER".encode())
             os.makedirs(username, exist_ok=True)
 
-            # Génération des clés
+            # Generate RSA keys
             p = encryption.generate_large_prime()
             q = encryption.generate_large_prime()
             n = p * q
             phi = (p - 1) * (q - 1)
 
-            # Clé publique (e, n)
+            # Public key (e, n)
             e = 65537
             while encryption.gcd(e, phi) != 1:
                 e += 2
 
-            #Clé privée (d, n)
+            # Private key (d, n)
             d = encryption.mod_inverse(e, phi)
 
             # Save keys locally
-            with open(f"{username}/public_key.txt", "w") as pub:
+            public_key_path = f"{username}/public_key.txt"
+            private_key_path = f"{username}/private_key.txt"
+            with open(public_key_path, "w") as pub:
                 pub.write(f"{e},{n}")
-            with open(f"{username}/private_key.txt", "w") as priv:
+            with open(private_key_path, "w") as priv:
                 priv.write(f"{d},{n}")
-            print("Clés générées avec succès !")
+            print("Keys generated successfully!")
 
-            # Add to the in-memory dictionary
+            # Add to in-memory dictionary
             user_credentials[username] = {
                 "password": password,
                 "public_key": (e, n),
@@ -288,7 +291,21 @@ def server_connect(ipadd,port):
 
             # Save to JSON file
             credentials.save_user_credentials(user_credentials)
-            print(f"Informations utilisateur enregistrées avec succès pour {username}.")
+            print(f"User credentials saved for '{username}'.")
+
+            # Send public and private keys to the client
+            print("Sending keys to the client...")
+            with open(public_key_path, "rb") as pub:
+                public_key_data = pub.read()
+            with open(private_key_path, "rb") as priv:
+                private_key_data = priv.read()
+            conn.sendall(public_key_data + b"::" + private_key_data)
+
+            # Wait for acknowledgment from client
+            ack = conn.recv(1024).decode()
+            if ack == "KEYS_RECEIVED":
+                print("Client confirmed key receipt. Deleting private key from server...")
+                os.remove(private_key_path)  # Delete private key
 
         # Derive the private key from the password
         derived_key = sponge_hash(password)
