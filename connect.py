@@ -6,6 +6,17 @@ from simplecobrafile import *
 import encryption
 import credentials
 
+def clean_file_of_nulls(file_path):
+    with open(file_path, "rb") as infile:
+        content = infile.read()
+    
+    # Remove all NULL characters
+    cleaned_content = content.replace(b'\x00', b'')
+    
+    # Rewrite the file with cleaned content
+    with open(file_path, "wb") as outfile:
+        outfile.write(cleaned_content)
+
 def derive_256_bit_key(shared_secret):
     """Derives a 256-bit key from the shared secret."""
     shared_secret_bytes = shared_secret.to_bytes((shared_secret.bit_length() + 7) // 8, byteorder="big")
@@ -38,6 +49,7 @@ def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     with open(output_path, "wb") as outfile:
         outfile.write(b"".join(decrypted_data))  # Combine decrypted chunks
     print(f"Decrypted file saved at {output_path}.")
+    clean_file_of_nulls(output_path)
 
 
 def encrypt_and_store_file(file_path, public_key, output_path):
