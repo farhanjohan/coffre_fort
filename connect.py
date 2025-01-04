@@ -250,9 +250,6 @@ def server_connect(ipadd,port):
         print(f"Server: Received credentials for {username}.")
 
         user_credentials = credentials.load_user_credentials()
-
-        #if username in user_credentials:
-            #conn.send("OLD_USER".encode())
         
         if username not in user_credentials:
             print(f"User '{username}' does not exist, creating a new one.")
@@ -306,6 +303,8 @@ def server_connect(ipadd,port):
             if ack == "KEYS_RECEIVED":
                 print("Client confirmed key receipt. Deleting private key from server...")
                 os.remove(private_key_path)  # Delete private key
+        else :
+            conn.send("OLD_USER".encode())
 
         # Derive the private key from the password
         derived_key = sponge_hash(password)
