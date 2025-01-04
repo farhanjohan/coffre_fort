@@ -250,6 +250,9 @@ def server_connect(ipadd,port):
 
         user_credentials = credentials.load_user_credentials()
 
+        if username in user_credentials:
+            conn.send("OLD_USER".encode())
+        
         if username not in user_credentials:
             print(f"user not exist, creating a new one")
             conn.send("NEW_USER".encode())
@@ -287,7 +290,6 @@ def server_connect(ipadd,port):
             credentials.save_user_credentials(user_credentials)
             print(f"Informations utilisateur enregistrées avec succès pour {username}.")
 
-        conn.send("OLD_USER".encode())
         # Derive the private key from the password
         derived_key = sponge_hash(password)
         zkp = ZKPAuth(derived_key, p=23, g=5)
