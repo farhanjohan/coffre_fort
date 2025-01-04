@@ -77,6 +77,27 @@ def client_connect(ipadd,port):
     shared_secret = compute_shared_secret(prime, server_public_key, client_private_key)
     print(f"Client: Shared secret is {shared_secret}")
     
+    # Prompt the client for action
+    print("\nWhat do you want to do?")
+    print("1. Upload a file")
+    print("2. Open a file")
+    choice = input("Enter your choice (1 or 2): ")
+
+    client.send(choice.encode())  # Send choice to server
+
+    print("Choice sent to server. Awaiting response...")
+    if choice == "2":
+        # Receive and display the list of files
+        file_list = client.recv(1024).decode()
+        print("Files in your repository:")
+        print(file_list)
+        selected_file = input("Enter the name of the file you want to open: ")
+        client.send(selected_file.encode())
+
+        # Receive the file content
+        file_content = client.recv(1024).decode()
+        print(f"Content of {selected_file}:")
+        print(file_content)
 
 
 def server_connect(ipadd,port):
@@ -95,10 +116,6 @@ def server_connect(ipadd,port):
         print(f"Server: Received credentials for {username}.")
 
         user_credentials = credentials.load_user_credentials()
-
-
-        
-            
 
         if username not in user_credentials:
             os.makedirs(username, exist_ok=True)
@@ -185,6 +202,37 @@ def server_connect(ipadd,port):
         shared_secret = compute_shared_secret(prime, client_public_key, server_private_key)
         print(f"Server: Shared secret is {shared_secret}")
 
+        choice = conn.recv(1024).decode()
+        if choice == "1":
+            print("Server: Client chose to upload a file.")
+            #####
+        elif choice == "2":
+            print("Server: Client chose to open a file.")
+            user_dir = username  # Assuming user's directory is named after the username
+
+            if os.path.exists(user_dir):
+                files = os.listdir(user_dir)
+                if files:
+                    file_list = "\n".join(files)
+                else:
+                    file_list = "No files available."
+            else:
+                file_list = "User repository not found."
+
+            conn.send(file_list.encode())  # Send the list of files to the client
+
+            # Receive selected file from the client
+            selected_file = conn.recv(1024).decode()
+            file_path = os.path.join(user_dir, selected_file)
+
+            if os.path.exists(file_path):
+                with open(file_path, "r") as f:
+                    file_content = f.read()
+            else:
+                file_content = "File not found."
+
+            conn.send(file_content.encode())  # Send the content of the file
+       
     finally:
         return
         #server.close()
