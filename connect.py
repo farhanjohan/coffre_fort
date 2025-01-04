@@ -96,12 +96,9 @@ def server_connect(ipadd,port):
 
         user_credentials = credentials.load_user_credentials()
 
-        while username in user_credentials:
-            print(f"L'utilisateur '{username}' existe déjà.")
-            conn.send("username deja existe".encode())
-            data = conn.recv(1024).decode()
-            username, password = data.split("::")
-            return
+
+        
+            
 
         if username not in user_credentials:
             os.makedirs(username, exist_ok=True)
@@ -138,7 +135,7 @@ def server_connect(ipadd,port):
             credentials.save_user_credentials(user_credentials)
             print(f"Informations utilisateur enregistrées avec succès pour {username}.")
 
-
+        
         # Derive the private key from the password
         derived_key = sponge_hash(password)
         zkp = ZKPAuth(derived_key, p=23, g=5)
