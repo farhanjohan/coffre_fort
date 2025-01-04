@@ -16,7 +16,7 @@ def derive_256_bit_key(shared_secret):
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     d, n = private_key
     decrypted_data = b""
-    chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
+    chunk_size = n.bit_length() // 8 - 1  # Maximum chunk size for RSA encryption
 
     with open(encrypted_file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(chunk_size):  # Read encrypted chunks
@@ -163,7 +163,7 @@ def client_connect(ipadd,port):
                 chunk = encrypted_content[i:i + chunk_size]
                 cobra_decrypted_content.extend(cobra.decrypt_block(chunk))
 
-            # Save intermediate COBRA-decrypted content for debugging (optional)
+            # Save intermediate COBRA-decrypted content for debugging 
             intermediate_file = f"intermediate_{selected_file}.dec"
             with open(intermediate_file, "wb") as f:
                 f.write(cobra_decrypted_content)
@@ -177,7 +177,7 @@ def client_connect(ipadd,port):
             decrypted_file_path = os.path.join(user_dir, selected_file)
             decrypt_and_store_file(intermediate_file, private_key, decrypted_file_path)
 
-            # Optionally remove intermediate file
+            # remove intermediate file
             os.remove(intermediate_file)
             print(f"File decrypted and saved as {decrypted_file_path}.")
 
