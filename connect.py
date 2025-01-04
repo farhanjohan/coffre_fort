@@ -8,14 +8,19 @@ import credentials
 
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     d, n = private_key
+    decrypted_data = b""
     chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
+
     with open(encrypted_file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(chunk_size):  # Read encrypted chunks
             encrypted_int = int.from_bytes(chunk, byteorder="big")
             decrypted_int = pow(encrypted_int, d, n)  # Decrypt: m = c^d mod n
             decrypted_chunk = decrypted_int.to_bytes(chunk_size - 1, byteorder="big").rstrip(b"\x00")  # Remove padding
-            outfile.write(decrypted_chunk)  # Write plaintext chunk to output file
-    print(f"Decrypted content saved to {output_path}.")
+            decrypted_data += decrypted_chunk
+
+        # Write the final plaintext to the output file
+        outfile.write(decrypted_data.rstrip(b"\x00"))  # Strip trailing NULL bytes
+
 
 
 def encrypt_and_store_file(file_path, public_key, output_path):
