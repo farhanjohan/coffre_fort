@@ -6,38 +6,24 @@ from simplecobrafile import *
 import encryption
 import credentials
 
-def rsa_encrypt(public_key, plaintext):
-    """
-    Encrypts plaintext using RSA encryption with the provided public key.
-    
-    Args:
-        public_key (tuple): A tuple containing the public exponent `e` and modulus `n`.
-        plaintext (bytes): The data to encrypt.
-    
-    Returns:
-        bytes: The encrypted data.
-    """
+def rsa_decrypt(private_key, ciphertext):
+    d, n = private_key
+    ciphertext_int = int.from_bytes(ciphertext, byteorder='big')  # Convert ciphertext to an integer
+    plaintext_int = pow(ciphertext_int, d, n)  # Perform RSA decryption: m = c^d mod n
+    plaintext = plaintext_int.to_bytes((plaintext_int.bit_length() + 7) // 8, byteorder='big')
+    return plaintext
+
+def encrypt_and_store_file(file_path, public_key, output_path):
     e, n = public_key
-    plaintext_int = int.from_bytes(plaintext, byteorder='big')  # Convert plaintext to an integer
-    ciphertext_int = pow(plaintext_int, e, n)  # Perform RSA encryption: c = m^e mod n
-    ciphertext = ciphertext_int.to_bytes((ciphertext_int.bit_length() + 7) // 8, byteorder='big')
-    return ciphertext
+    chunk_size = n.bit_length() // 8 - 1  # Maximum chunk size for RSA encryption
+    with open(file_path, "rb") as infile, open(output_path, "wb") as outfile:
+        while chunk := infile.read(chunk_size):  # Read chunks of valid size
+            chunk_int = int.from_bytes(chunk, byteorder="big")
+            encrypted_int = pow(chunk_int, e, n)  # Encrypt: c = m^e mod n
+            encrypted_chunk = encrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big")
+            outfile.write(encrypted_chunk)
 
-def encrypt_and_store_file(file_path, user_private_key, storage_dir):
-    # Ensure the storage directory exists
-    os.makedirs(storage_dir, exist_ok=True)
-
-    # Determine encrypted file path
-    encrypted_file_path = os.path.join(storage_dir, f"{os.path.basename(file_path)}.enc")
-
-    # Encrypt file content
-    with open(file_path, "rb") as file_in, open(encrypted_file_path, "wb") as file_out:
-        while chunk := file_in.read(64):  # RSA can only encrypt small chunks
-            encrypted_chunk = rsa_encrypt(user_private_key, chunk)
-            file_out.write(encrypted_chunk)
-
-    print(f"File encrypted and stored at {encrypted_file_path}.")
-    return encrypted_file_path
+    print(f"File encrypted and stored at {output_path}.")
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
@@ -266,7 +252,7 @@ def server_connect(ipadd,port):
         choice = conn.recv(1024).decode()
         if choice == "1":
             print("Server: Client chose to upload a file.")
-    
+
             # Receive the file name
             file_name = conn.recv(1024).decode()
             print(f"Server: Receiving file '{file_name}'.")
@@ -275,28 +261,28 @@ def server_connect(ipadd,port):
             file_content = b""
             while chunk := conn.recv(1024):
                 file_content += chunk
+                if len(chunk) < 1024:  # Assume end of file if chunk size < 1024
+                    break
 
-            # Save the file in the user's directory
+            # Save the file temporarily in memory
             user_dir = username
-            os.makedirs(user_dir, exist_ok=True)
-            file_path = os.path.join(user_dir, file_name)
-            
-            with open(file_path, "wb") as file:
-                file.write(file_content)
-            
-            print(f"Server: File '{file_name}' received and saved.")
+            os.makedirs(user_dir, exist_ok=True)  # Ensure the user's directory exists
+            temp_file_path = os.path.join(user_dir, file_name)
+            with open(temp_file_path, "wb") as temp_file:
+                temp_file.write(file_content)
+            print(f"Server: File '{file_name}' received.")
 
             # Encrypt the file using the user's private key
-            private_key_path = os.path.join(user_dir, "private_key.txt")
-            with open(private_key_path, "r") as priv_key_file:
-                private_key = priv_key_file.read()
+            public_key_path = os.path.join(user_dir, "public_key.txt")
+            with open(public_key_path, "r") as pub_key_file:
+                public_key = pub_key_file.read()
 
-            d, n = map(int, private_key.split(","))
-            encrypted_file_path = f"{file_path}.enc"
-            encrypt_and_store_file(file_path, d, encrypted_file_path)
+            e, n = map(int, public_key.split(","))
+            encrypted_file_path = os.path.join(user_dir, f"{file_name}.enc")
+            encrypt_and_store_file(temp_file_path, (e, n), encrypted_file_path)
 
-            # Remove the plain file
-            os.remove(file_path)
+            # Remove the plaintext file
+            os.remove(temp_file_path)
             print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
 
         elif choice == "2":
