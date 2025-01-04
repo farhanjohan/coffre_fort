@@ -93,7 +93,6 @@ def client_connect(ipadd,port):
     client.send(f"{username}::{password}".encode())
 
     newuser = client.recv(1024).decode()
-
     if newuser =="NEW_USER":
         os.makedirs(username, exist_ok=True)
         # Génération des clés
@@ -288,7 +287,7 @@ def server_connect(ipadd,port):
             credentials.save_user_credentials(user_credentials)
             print(f"Informations utilisateur enregistrées avec succès pour {username}.")
 
-        
+        conn.send("OLD_USER".encode())
         # Derive the private key from the password
         derived_key = sponge_hash(password)
         zkp = ZKPAuth(derived_key, p=23, g=5)
