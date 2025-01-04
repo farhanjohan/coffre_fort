@@ -15,32 +15,30 @@ def derive_256_bit_key(shared_secret):
 
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     d, n = private_key
-    decrypted_data = b""
-    chunk_size = n.bit_length() // 8 - 1  # Maximum chunk size for RSA encryption
+    chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
 
     with open(encrypted_file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(chunk_size):  # Read encrypted chunks
             encrypted_int = int.from_bytes(chunk, byteorder="big")
             decrypted_int = pow(encrypted_int, d, n)  # Decrypt: m = c^d mod n
-            decrypted_chunk = decrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big").rstrip(b"\x00")  # Remove padding
-            decrypted_data += decrypted_chunk
-
-        # Write the final plaintext to the output file
-        outfile.write(decrypted_data.rstrip(b"\x00"))  # Strip trailing NULL bytes
+            # Dynamically calculate size of decrypted data and remove padding
+            decrypted_chunk = decrypted_int.to_bytes(chunk_size - 1, byteorder="big").rstrip(b"\x00")
+            outfile.write(decrypted_chunk)  # Write directly to file
+    print(f"File decrypted and saved at {output_path}.")
 
 
 
 def encrypt_and_store_file(file_path, public_key, output_path):
     e, n = public_key
-    chunk_size = n.bit_length() // 8 - 1  # Maximum chunk size for RSA encryption
+    chunk_size = n.bit_length() // 8 - 1  # Max chunk size for RSA encryption (n - 1 byte)
     with open(file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(chunk_size):  # Read chunks of valid size
             chunk_int = int.from_bytes(chunk, byteorder="big")
             encrypted_int = pow(chunk_int, e, n)  # Encrypt: c = m^e mod n
             encrypted_chunk = encrypted_int.to_bytes((n.bit_length() + 7) // 8, byteorder="big")
             outfile.write(encrypted_chunk)
-
     print(f"File encrypted and stored at {output_path}.")
+
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
