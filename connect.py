@@ -228,6 +228,7 @@ def server_connect(ipadd,port):
         user_credentials = credentials.load_user_credentials()
 
         if username not in user_credentials:
+            print(f"user not exist, creating a new one")
             os.makedirs(username, exist_ok=True)
 
             # Génération des clés
