@@ -84,8 +84,8 @@ def send_message_enc(original_message,session_key):
     original_message=bytes(original_message,"utf-8")
     session_key=bytes(session_key,"utf-8")
     ciphertext, hmac = encrypt_and_authenticate(original_message, session_key)
-    print("Ciphertext:", ciphertext)
-    print("HMAC:", hmac.hex())
+    # print("Ciphertext:", ciphertext)
+    # print("HMAC:", hmac.hex())
     return ciphertext,hmac
 
 

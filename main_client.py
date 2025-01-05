@@ -1,9 +1,6 @@
 import connect
-import echange
-
 
 def main():
-
     #### connection ###
     connect.client_connect("25.15.154.124")
 

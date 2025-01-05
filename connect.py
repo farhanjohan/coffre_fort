@@ -73,15 +73,21 @@ def compute_shared_secret(prime, public_key, private_key):
 def client_connect(ipadd):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((ipadd, 6000))  # Connect to server at :6000
-    print("Connected to the server.")
 
+    print("\n#########################################################################")
+    print("Connected to the server.")
+    print("#########################################################################\n")
+
+    print("#########################################################################")
     username = input("Enter username: ")
     password = input("Enter password: ")
+    print("#########################################################################\n")
+
     client.send(f"{username}::{password}".encode())
 
     response = client.recv(1024).decode()
     if response == "NEW_USER":
-        print("New user detected. Initiating creation...")
+        print("New user detected. Initiating creation...\n")
 
         # Create a directory for the user locally
         os.makedirs(username, exist_ok=True)
@@ -109,13 +115,16 @@ def client_connect(ipadd):
         with open(private_key_path, "w") as priv:
             priv.write(f"{d},{n}")
 
+        print("#########################################################################")
         print("Keys generated successfully!")
+        print("#########################################################################\n")
+
 
         # Send public key to the server
         with open(public_key_path, "r") as pub:
             public_key_data = pub.read()
         client.send(public_key_data.encode())
-        print("Public key sent to the server.")
+        print("Public key sent to the server.\n")
 
     # Derive the private key from the password
     derived_key = sponge_hash(password)
@@ -125,6 +134,8 @@ def client_connect(ipadd):
     M = zkp.generer_preuve()
     data = f"{zkp.cle_publique},{M}"
     client.sendall(data.encode())
+
+    print("#########################################################################")
     print(f"Client: Sent public key and commitment: {data}")
 
     # Receive challenge from the server
@@ -160,25 +171,33 @@ def client_connect(ipadd):
     shared_secret = compute_shared_secret(prime, server_public_key, client_private_key)
     print(f"Client: Shared secret is {shared_secret}")
     key_256 = derive_256_bit_key(shared_secret)
+    print("#########################################################################")
+
 
     while True :
         # Prompt the client for action
         print("\nWhat do you want to do?")
         print("1. Upload a file")
         print("2. Open a file")
-        choice = input("Enter your choice (1 or 2): ")
+        choice = input("Enter your choice (1 or 2): \n")
 
         shared_secret=str(shared_secret)
         crypted_message = encryption.send_message_enc(choice,shared_secret)
         client.send(pickle.dumps(crypted_message))  # Send choice to server
+
+        print("#########################################################################")
         print("Choice sent to server. Awaiting response...")
+        print("#########################################################################\n")
+
         if choice == "1":
             # Prompt the client to specify the file to upload
-            file_to_upload = input("Enter the path of the file to upload: ")
+            file_to_upload = input("Enter the path of the file to upload: \n")
 
             # Ensure the file exists
             if not os.path.exists(file_to_upload):
+                print("#########################################################################")
                 print("Error: File does not exist.")
+                print("#########################################################################\n")
                 client.send(b"FILE_NOT_FOUND")
             else:
 
@@ -191,22 +210,32 @@ def client_connect(ipadd):
                     file_content = file.read()
                 client.sendall(file_content)
 
+                print("#########################################################################")
                 print(f"File '{file_name}' has been uploaded successfully.")
+                print("#########################################################################\n")
 
         elif choice == "2":
             # Receive and display the list of files
             file_list = client.recv(1024).decode()
-            print("Files in your repository:")
+            print("#########################################################################")
+            print("Files in your repository:\n")
             print(file_list)
+            print("#########################################################################\n")
+
             selected_file = input("Enter the name of the file you want to open: ")
             client.send(selected_file.encode())
 
             # Receive the encrypted file content
             encrypted_content = client.recv(1024 * 10)  # Adjust size as needed
             if encrypted_content == b"File not found.":
+                print("#########################################################################")
                 print("The requested file was not found on the server.")
+                print("#########################################################################\n")
+
             else:
+                print("#########################################################################")
                 print(f"Encrypted content for '{selected_file}' received.")
+                print("########################################################################\n")
 
                 # COBRA decrypt the file
                 selected_file = os.path.splitext(selected_file)[0]
@@ -233,11 +262,16 @@ def client_connect(ipadd):
 
                 # remove intermediate file
                 os.remove(intermediate_file)
+                print("#########################################################################")
                 print(f"File decrypted and saved as {decrypted_file_path}.")
+                print("#########################################################################\n")
+
         continue_choice = input("Do you want to continue? (yes/no): ").strip().lower()
         client.send(continue_choice.encode())
         if continue_choice != "yes":
+            print("#########################################################################")
             print("Exiting session.")
+            print("#########################################################################\n")
             break
 
 def server_connect(ipadd):
