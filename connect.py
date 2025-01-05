@@ -273,12 +273,11 @@ def server_connect(ipadd,port):
             e, n = map(int, public_key_data.split(","))  # Parse the public key components
             print(f"Received public key for '{username}': e={e}, n={n}")
 
-            # Create a directory for the user
-            user_dir = os.path.join("users", username)  # Example base directory
-            os.makedirs(user_dir, exist_ok=True)
+            # Create a directory for the user 
+            os.makedirs(username, exist_ok=True)
 
             # Save the public key in a text file in the user's directory
-            public_key_path = os.path.join(user_dir, "public_key.txt")
+            public_key_path = os.path.join(username, "public_key.txt")
             with open(public_key_path, "w") as pub_file:
                 pub_file.write(public_key_data)
             print(f"Public key saved at: {public_key_path}")
