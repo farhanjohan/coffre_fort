@@ -94,7 +94,6 @@ def receive_message_dec(ciphertext,hmac,session_key):
     session_key=bytes(session_key,"utf-8")
     try:
         decrypted_message = verify_and_decrypt(ciphertext, hmac, session_key)
-        print("Decrypted Message:", decrypted_message.decode())
     except ValueError as e:
         print("Error:", e) 
     return decrypted_message
