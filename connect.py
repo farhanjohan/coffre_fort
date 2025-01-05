@@ -129,10 +129,6 @@ def client_connect(ipadd,port):
         client.send(public_key_data.encode())
         print("Public key sent to the server.")
 
-        # Acknowledge the server after sending the public key
-        client.send("KEYS_RECEIVED".encode())
-
-
     # Derive the private key from the password
     derived_key = sponge_hash(password)
     zkp = ZKPAuth(derived_key, p=23, g=5)
@@ -297,10 +293,6 @@ def server_connect(ipadd,port):
             credentials.save_user_credentials(user_credentials)
             print(f"User credentials updated and saved for '{username}'.")
 
-            # Wait for acknowledgment from the client
-            ack = conn.recv(1024).decode()
-            if ack == "KEYS_RECEIVED":
-                print("Client confirmed key receipt.")
         else:
             conn.send("OLD_USER".encode())
 
