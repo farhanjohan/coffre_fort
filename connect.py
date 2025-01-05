@@ -244,7 +244,7 @@ def server_connect(ipadd):
     conn, addr = server.accept()
     print(f"Server: Connected to {addr}")
 
-    try:
+    try :
         # Receive username and password
         data = conn.recv(1024).decode()
         username, password = data.split("::")
@@ -334,21 +334,11 @@ def server_connect(ipadd):
         key_256 = derive_256_bit_key(shared_secret)
 
         ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
-
-
-
-
-
-
-
-
-
-
+        shared_secret=str(shared_secret)
         choice = conn.recv(1024)
         ciphertext, hmac = pickle.loads(choice)
-        choice(encryption.receive_message_dec(ciphertext,hmac,shared_secret))
-        print(choice)
-
+        choice = (encryption.receive_message_dec(ciphertext,hmac,shared_secret)).decode()
+        
         if choice == "1":
             print("Server: Client chose to upload a file.")
 
@@ -416,7 +406,5 @@ def server_connect(ipadd):
             os.remove(encrypted_file_path)
         else:
             conn.send(b"File not found.")
-       
     finally:
         return
-        #server.close()
