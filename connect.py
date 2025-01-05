@@ -17,17 +17,12 @@ def clean_file_of_nulls(file_path):
         outfile.write(cleaned_content)
 
 def derive_256_bit_key(shared_secret):
-    """Derives a 256-bit key from the shared secret."""
     shared_secret_bytes = shared_secret.to_bytes((shared_secret.bit_length() + 7) // 8, byteorder="big")
     while len(shared_secret_bytes) < 32:  # Ensure at least 32 bytes (256 bits)
         shared_secret_bytes += shared_secret_bytes  # Repeat bytes if too short
     return shared_secret_bytes[:32]  # Trim to 256 bits (32 bytes)
 
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
-    """
-    Decrypts an RSA-encrypted file and writes the plaintext to the output path.
-    Handles padding and chunk concatenation correctly.
-    """
     d, n = private_key
     chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
     decrypted_data = []
@@ -50,15 +45,9 @@ def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     print(f"Decrypted file saved at {output_path}.")
     clean_file_of_nulls(output_path)
 
-
 def encrypt_and_store_file(file_path, public_key, output_path):
-    """
-    Encrypts a file using RSA and writes the ciphertext to the output path.
-    Handles padding and chunking consistently with the decryption logic.
-    """
     e, n = public_key
     max_chunk_size = n.bit_length() // 8 - 1  # Maximum plaintext size per RSA block
-
     with open(file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(max_chunk_size):  # Read plaintext chunks
             chunk_int = int.from_bytes(chunk, byteorder="big")  # Convert to integer
@@ -67,7 +56,6 @@ def encrypt_and_store_file(file_path, public_key, output_path):
             outfile.write(encrypted_chunk)
 
     print(f"File encrypted and stored at {output_path}.")
-
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
@@ -81,10 +69,9 @@ def compute_shared_secret(prime, public_key, private_key):
     """Calcule le secret partagé."""
     return pow(public_key, private_key, prime)
 
-def client_connect(ipadd,port):
-
+def client_connect(ipadd):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((ipadd, 6000))  # Connect to server at localhost:6000
+    client.connect((ipadd, 6000))  # Connect to server at :6000
     print("Connected to the server.")
 
     username = input("Enter username: ")
@@ -246,8 +233,7 @@ def client_connect(ipadd,port):
             os.remove(intermediate_file)
             print(f"File decrypted and saved as {decrypted_file_path}.")
 
-
-def server_connect(ipadd,port):
+def server_connect(ipadd):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((ipadd,6000))  # Bind to port 
     server.listen(1)
@@ -430,5 +416,3 @@ def server_connect(ipadd,port):
     finally:
         return
         #server.close()
-
-
