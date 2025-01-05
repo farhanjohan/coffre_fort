@@ -4,6 +4,7 @@ from auth import *
 from simplecobrafile import *
 import encryption
 import credentials
+import pickle
 
 def clean_file_of_nulls(file_path):
     with open(file_path, "rb") as infile:
@@ -167,8 +168,9 @@ def client_connect(ipadd):
     print("2. Open a file")
     choice = input("Enter your choice (1 or 2): ")
 
+    shared_secret=str(shared_secret)
     crypted_message = encryption.send_message_enc(choice,shared_secret)
-    client.send(crypted_message.encode())  # Send choice to server
+    client.send(pickle.dumps(crypted_message))  # Send choice to server
     print("Choice sent to server. Awaiting response...")
     if choice == "1":
         # Prompt the client to specify the file to upload
@@ -342,7 +344,9 @@ def server_connect(ipadd):
 
 
 
-        choice = conn.recv(1024).decode()
+        choice = conn.recv(1024)
+        ciphertext, hmac = pickle.loads(choice)
+        choice(encryption.receive_message_dec(ciphertext,hmac,shared_secret))
         print(choice)
 
         if choice == "1":
