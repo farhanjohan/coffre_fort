@@ -93,25 +93,43 @@ def client_connect(ipadd,port):
 
     response = client.recv(1024).decode()
     if response == "NEW_USER":
-        print("New user detected. initiate creation")
+        print("New user detected. Initiating creation...")
 
-        # Receive public and private keys from the server
-        keys_data = client.recv(2048)  # Adjust size as needed
-        public_key_data, private_key_data = keys_data.split(b"::")
-
-        # Create a directory for the user
+        # Create a directory for the user locally
         os.makedirs(username, exist_ok=True)
+
+        # Generate RSA keys
+        p = encryption.generate_large_prime()
+        q = encryption.generate_large_prime()
+        n = p * q
+        phi = (p - 1) * (q - 1)
+
+        # Public key (e, n)
+        e = 65537
+        while encryption.gcd(e, phi) != 1:
+            e += 2
+
+        # Private key (d, n)
+        d = encryption.mod_inverse(e, phi)
+
+        # Save keys locally
         public_key_path = os.path.join(username, "public_key.txt")
         private_key_path = os.path.join(username, "private_key.txt")
 
-        # Save the keys locally
-        with open(public_key_path, "wb") as pub:
-            pub.write(public_key_data)
-        with open(private_key_path, "wb") as priv:
-            priv.write(private_key_data)
-        print(f"Keys saved successfully in '{username}' directory.")
+        with open(public_key_path, "w") as pub:
+            pub.write(f"{e},{n}")
+        with open(private_key_path, "w") as priv:
+            priv.write(f"{d},{n}")
 
-        # Send acknowledgment to the server
+        print("Keys generated successfully!")
+
+        # Send public key to the server
+        with open(public_key_path, "r") as pub:
+            public_key_data = pub.read()
+        client.send(public_key_data.encode())
+        print("Public key sent to the server.")
+
+        # Acknowledge the server after sending the public key
         client.send("KEYS_RECEIVED".encode())
 
 
@@ -251,58 +269,39 @@ def server_connect(ipadd,port):
         user_credentials = credentials.load_user_credentials()
         
         if username not in user_credentials:
-            print(f"User '{username}' does not exist, creating a new one.")
+            print(f"User '{username}' does not exist. Creating a new one...")
             conn.send("NEW_USER".encode())
-            os.makedirs(username, exist_ok=True)
 
-            # Generate RSA keys
-            p = encryption.generate_large_prime()
-            q = encryption.generate_large_prime()
-            n = p * q
-            phi = (p - 1) * (q - 1)
+            # Receive the public key from the client
+            public_key_data = conn.recv(2048).decode()  # Adjust buffer size if needed
+            e, n = map(int, public_key_data.split(","))  # Parse the public key components
+            print(f"Received public key for '{username}': e={e}, n={n}")
 
-            # Public key (e, n)
-            e = 65537
-            while encryption.gcd(e, phi) != 1:
-                e += 2
+            # Create a directory for the user
+            user_dir = os.path.join("users", username)  # Example base directory
+            os.makedirs(user_dir, exist_ok=True)
 
-            # Private key (d, n)
-            d = encryption.mod_inverse(e, phi)
+            # Save the public key in a text file in the user's directory
+            public_key_path = os.path.join(user_dir, "public_key.txt")
+            with open(public_key_path, "w") as pub_file:
+                pub_file.write(public_key_data)
+            print(f"Public key saved at: {public_key_path}")
 
-            # Save keys locally
-            public_key_path = f"{username}/public_key.txt"
-            private_key_path = f"{username}/private_key.txt"
-            with open(public_key_path, "w") as pub:
-                pub.write(f"{e},{n}")
-            with open(private_key_path, "w") as priv:
-                priv.write(f"{d},{n}")
-            print("Keys generated successfully!")
-
-            # Add to in-memory dictionary
+            # Update in-memory user credentials
             user_credentials[username] = {
                 "password": password,
                 "public_key": (e, n),
-                "private_key": (d, n),
             }
 
-            # Save to JSON file
+            # Save updated credentials to the JSON file
             credentials.save_user_credentials(user_credentials)
-            print(f"User credentials saved for '{username}'.")
+            print(f"User credentials updated and saved for '{username}'.")
 
-            # Send public and private keys to the client
-            print("Sending keys to the client...")
-            with open(public_key_path, "rb") as pub:
-                public_key_data = pub.read()
-            with open(private_key_path, "rb") as priv:
-                private_key_data = priv.read()
-            conn.sendall(public_key_data + b"::" + private_key_data)
-
-            # Wait for acknowledgment from client
+            # Wait for acknowledgment from the client
             ack = conn.recv(1024).decode()
             if ack == "KEYS_RECEIVED":
-                print("Client confirmed key receipt. Deleting private key from server...")
-                os.remove(private_key_path)  # Delete private key
-        else :
+                print("Client confirmed key receipt.")
+        else:
             conn.send("OLD_USER".encode())
 
         # Derive the private key from the password
