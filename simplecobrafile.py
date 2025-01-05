@@ -73,32 +73,3 @@ class SimpleCOBRA:
             while chunk := infile.read(16):
                 decrypted_chunk = self.decrypt_block(chunk)
                 outfile.write(decrypted_chunk.rstrip(b"\x00"))
-
-def main():
-    key = b"mysecretkey12345"
-    cobra = SimpleCOBRA(key)
-
-    # File paths
-    input_file = "example.txt"
-    encrypted_file = "example_encrypted.cobra"
-    decrypted_file = "example_decrypted.txt"
-
-    # Write a sample file
-    with open(input_file, "w") as f:
-        f.write("This is a sample text file for COBRA encryption and decryption.")
-
-    # Encrypt the file
-    cobra.encrypt_file(input_file, encrypted_file)
-    print(f"File encrypted to: {encrypted_file}")
-
-    # Decrypt the file
-    cobra.decrypt_file(encrypted_file, decrypted_file)
-    print(f"File decrypted to: {decrypted_file}")
-
-    # Show decrypted content
-    with open(decrypted_file, "r") as f:
-        print("Decrypted content:", f.read())
-
-
-if __name__ == "__main__":
-    main()

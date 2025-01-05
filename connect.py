@@ -253,13 +253,13 @@ def server_connect(ipadd):
         user_credentials = credentials.load_user_credentials()
         
         if username not in user_credentials:
-            print(f"User '{username}' does not exist. Creating a new one...")
+            print(f"Server: User '{username}' does not exist. Creating a new one...")
             conn.send("NEW_USER".encode())
 
             # Receive the public key from the client
             public_key_data = conn.recv(2048).decode()  # Adjust buffer size if needed
             e, n = map(int, public_key_data.split(","))  # Parse the public key components
-            print(f"Received public key for '{username}': e={e}, n={n}")
+            print(f"Server: Received public key for '{username}': e={e}, n={n}")
 
             # Create a directory for the user 
             os.makedirs(username, exist_ok=True)
@@ -268,7 +268,7 @@ def server_connect(ipadd):
             public_key_path = os.path.join(username, "public_key.txt")
             with open(public_key_path, "w") as pub_file:
                 pub_file.write(public_key_data)
-            print(f"Public key saved at: {public_key_path}")
+            print(f"Server: Public key saved at: {public_key_path}")
 
             # Update in-memory user credentials
             user_credentials[username] = {
@@ -278,7 +278,7 @@ def server_connect(ipadd):
 
             # Save updated credentials to the JSON file
             credentials.save_user_credentials(user_credentials)
-            print(f"User credentials updated and saved for '{username}'.")
+            print(f"Server: User credentials updated and saved for '{username}'.")
 
         else:
             conn.send("OLD_USER".encode())
@@ -375,7 +375,8 @@ def server_connect(ipadd):
             print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
 
         elif choice == "2":
-            print("Server: Client chose to open a file.")
+            print("Server: User chose to open a file.")
+            print("Server: Waiting for the user to choose a file.")
             user_dir = username 
 
             if os.path.exists(user_dir):
