@@ -81,6 +81,8 @@ def verify_and_decrypt(ciphertext, hmac, session_key):
 
  ################## SEND Encrypted and Authenticate ###############
 def send_message_enc(original_message,session_key):
+    original_message=bytes(original_message,"utf-8")
+    session_key=bytes(session_key,"utf-8")
     ciphertext, hmac = encrypt_and_authenticate(original_message, session_key)
     print("Ciphertext:", ciphertext)
     print("HMAC:", hmac.hex())
@@ -89,6 +91,7 @@ def send_message_enc(original_message,session_key):
 
 ################## RECEIVE Verify and Decrypt ####################
 def receive_message_dec(ciphertext,hmac,session_key): 
+    session_key=bytes(session_key,"utf-8")
     try:
         decrypted_message = verify_and_decrypt(ciphertext, hmac, session_key)
         print("Decrypted Message:", decrypted_message.decode())
