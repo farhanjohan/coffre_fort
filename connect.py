@@ -1,5 +1,4 @@
 import random
-import connect
 import socket
 from auth import *
 from simplecobrafile import *
@@ -167,8 +166,8 @@ def client_connect(ipadd,port):
     print("2. Open a file")
     choice = input("Enter your choice (1 or 2): ")
 
-    client.send(choice.encode())  # Send choice to server
-
+    crypted_message = encryption.send_message_enc(choice,shared_secret)
+    client.send(crypted_message.encode())  # Send choice to server
     print("Choice sent to server. Awaiting response...")
     if choice == "1":
         # Prompt the client to specify the file to upload
@@ -335,8 +334,8 @@ def server_connect(ipadd,port):
         else:
             conn.send("AUTH_FAIL".encode())
             print(f"Server: Authentication failed for {username}.")
-
-            ######### ON PEUT CHANGER LES P ET B ###########
+            
+        ######### ON PEUT CHANGER LES P ET B ###########
 
         prime = 23  # Public prime number
         base = 5    # Public base
@@ -356,7 +355,20 @@ def server_connect(ipadd,port):
         print(f"Server: Shared secret is {shared_secret}")
         key_256 = derive_256_bit_key(shared_secret)
 
+        ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
+
+
+
+
+
+
+
+
+
+
         choice = conn.recv(1024).decode()
+        print(choice)
+
         if choice == "1":
             print("Server: Client chose to upload a file.")
 
