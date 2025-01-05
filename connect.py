@@ -161,79 +161,84 @@ def client_connect(ipadd):
     print(f"Client: Shared secret is {shared_secret}")
     key_256 = derive_256_bit_key(shared_secret)
 
-    
-    # Prompt the client for action
-    print("\nWhat do you want to do?")
-    print("1. Upload a file")
-    print("2. Open a file")
-    choice = input("Enter your choice (1 or 2): ")
+    while True :
+        # Prompt the client for action
+        print("\nWhat do you want to do?")
+        print("1. Upload a file")
+        print("2. Open a file")
+        choice = input("Enter your choice (1 or 2): ")
 
-    shared_secret=str(shared_secret)
-    crypted_message = encryption.send_message_enc(choice,shared_secret)
-    client.send(pickle.dumps(crypted_message))  # Send choice to server
-    print("Choice sent to server. Awaiting response...")
-    if choice == "1":
-        # Prompt the client to specify the file to upload
-        file_to_upload = input("Enter the path of the file to upload: ")
+        shared_secret=str(shared_secret)
+        crypted_message = encryption.send_message_enc(choice,shared_secret)
+        client.send(pickle.dumps(crypted_message))  # Send choice to server
+        print("Choice sent to server. Awaiting response...")
+        if choice == "1":
+            # Prompt the client to specify the file to upload
+            file_to_upload = input("Enter the path of the file to upload: ")
 
-        # Ensure the file exists
-        if not os.path.exists(file_to_upload):
-            print("Error: File does not exist.")
-            client.send(b"FILE_NOT_FOUND")
-        else:
+            # Ensure the file exists
+            if not os.path.exists(file_to_upload):
+                print("Error: File does not exist.")
+                client.send(b"FILE_NOT_FOUND")
+            else:
 
-            # Send the file name
-            file_name = os.path.basename(file_to_upload)
-            client.send(file_name.encode())
-            
-            # Send the file content
-            with open(file_to_upload, "rb") as file:
-                file_content = file.read()
-            client.sendall(file_content)
+                # Send the file name
+                file_name = os.path.basename(file_to_upload)
+                client.send(file_name.encode())
+                
+                # Send the file content
+                with open(file_to_upload, "rb") as file:
+                    file_content = file.read()
+                client.sendall(file_content)
 
-            print(f"File '{file_name}' has been uploaded successfully.")
- 
-    elif choice == "2":
-        # Receive and display the list of files
-        file_list = client.recv(1024).decode()
-        print("Files in your repository:")
-        print(file_list)
-        selected_file = input("Enter the name of the file you want to open: ")
-        client.send(selected_file.encode())
+                print(f"File '{file_name}' has been uploaded successfully.")
 
-        # Receive the encrypted file content
-        encrypted_content = client.recv(1024 * 10)  # Adjust size as needed
-        if encrypted_content == b"File not found.":
-            print("The requested file was not found on the server.")
-        else:
-            print(f"Encrypted content for '{selected_file}' received.")
+        elif choice == "2":
+            # Receive and display the list of files
+            file_list = client.recv(1024).decode()
+            print("Files in your repository:")
+            print(file_list)
+            selected_file = input("Enter the name of the file you want to open: ")
+            client.send(selected_file.encode())
 
-            # COBRA decrypt the file
-            selected_file = os.path.splitext(selected_file)[0]
-            cobra = SimpleCOBRA(key_256)  # Ensure this matches the server key
-            cobra_decrypted_content = bytearray()
-            chunk_size = 16
-            for i in range(0, len(encrypted_content), chunk_size):
-                chunk = encrypted_content[i:i + chunk_size]
-                cobra_decrypted_content.extend(cobra.decrypt_block(chunk))
+            # Receive the encrypted file content
+            encrypted_content = client.recv(1024 * 10)  # Adjust size as needed
+            if encrypted_content == b"File not found.":
+                print("The requested file was not found on the server.")
+            else:
+                print(f"Encrypted content for '{selected_file}' received.")
 
-            # Save intermediate COBRA-decrypted content for debugging 
-            intermediate_file = f"intermediate_{selected_file}.dec"
-            with open(intermediate_file, "wb") as f:
-                f.write(cobra_decrypted_content)
+                # COBRA decrypt the file
+                selected_file = os.path.splitext(selected_file)[0]
+                cobra = SimpleCOBRA(key_256)  # Ensure this matches the server key
+                cobra_decrypted_content = bytearray()
+                chunk_size = 16
+                for i in range(0, len(encrypted_content), chunk_size):
+                    chunk = encrypted_content[i:i + chunk_size]
+                    cobra_decrypted_content.extend(cobra.decrypt_block(chunk))
 
-            # RSA decrypt the COBRA-decrypted content
-            user_dir = username
-            private_key_path = os.path.join(user_dir, "private_key.txt")
-            with open(private_key_path, "r") as priv_key_file:
-                private_key = tuple(map(int, priv_key_file.read().split(",")))
+                # Save intermediate COBRA-decrypted content for debugging 
+                intermediate_file = f"intermediate_{selected_file}.dec"
+                with open(intermediate_file, "wb") as f:
+                    f.write(cobra_decrypted_content)
 
-            decrypted_file_path = os.path.join(user_dir, selected_file)
-            decrypt_and_store_file(intermediate_file, private_key, decrypted_file_path)
+                # RSA decrypt the COBRA-decrypted content
+                user_dir = username
+                private_key_path = os.path.join(user_dir, "private_key.txt")
+                with open(private_key_path, "r") as priv_key_file:
+                    private_key = tuple(map(int, priv_key_file.read().split(",")))
 
-            # remove intermediate file
-            os.remove(intermediate_file)
-            print(f"File decrypted and saved as {decrypted_file_path}.")
+                decrypted_file_path = os.path.join(user_dir, selected_file)
+                decrypt_and_store_file(intermediate_file, private_key, decrypted_file_path)
+
+                # remove intermediate file
+                os.remove(intermediate_file)
+                print(f"File decrypted and saved as {decrypted_file_path}.")
+        continue_choice = input("Do you want to continue? (yes/no): ").strip().lower()
+        client.send(continue_choice.encode())
+        if continue_choice != "yes":
+            print("Exiting session.")
+            break
 
 def server_connect(ipadd):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -333,79 +338,85 @@ def server_connect(ipadd):
         print(f"Server: Shared secret is {shared_secret}")
         key_256 = derive_256_bit_key(shared_secret)
 
-        ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
-        shared_secret=str(shared_secret)
-        choice = conn.recv(1024)
-        ciphertext, hmac = pickle.loads(choice)
-        choice = (encryption.receive_message_dec(ciphertext,hmac,shared_secret)).decode()
-        
-        if choice == "1":
-            print("Server: Client chose to upload a file.")
+        while True:
+            ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
+            shared_secret=str(shared_secret)
+            choice = conn.recv(1024)
+            ciphertext, hmac = pickle.loads(choice)
+            choice = (encryption.receive_message_dec(ciphertext,hmac,shared_secret)).decode()
+            
+            if choice == "1":
+                print("Server: Client chose to upload a file.")
 
-            # Receive the file name
-            file_name = conn.recv(1024).decode()
-            print(f"Server: Receiving file '{file_name}'.")
+                # Receive the file name
+                file_name = conn.recv(1024).decode()
+                print(f"Server: Receiving file '{file_name}'.")
 
-            # Receive the file content
-            file_content = b""
-            while chunk := conn.recv(1024):
-                file_content += chunk
-                if len(chunk) < 1024:  # Assume end of file if chunk size < 1024
-                    break
+                # Receive the file content
+                file_content = b""
+                while chunk := conn.recv(1024):
+                    file_content += chunk
+                    if len(chunk) < 1024:  # Assume end of file if chunk size < 1024
+                        break
 
-            # Save the file temporarily in memory
-            user_dir = username
-            os.makedirs(user_dir, exist_ok=True)  # Ensure the user's directory exists
-            temp_file_path = os.path.join(user_dir, file_name)
-            with open(temp_file_path, "wb") as temp_file:
-                temp_file.write(file_content)
-            print(f"Server: File '{file_name}' received.")
+                # Save the file temporarily in memory
+                user_dir = username
+                os.makedirs(user_dir, exist_ok=True)  # Ensure the user's directory exists
+                temp_file_path = os.path.join(user_dir, file_name)
+                with open(temp_file_path, "wb") as temp_file:
+                    temp_file.write(file_content)
+                print(f"Server: File '{file_name}' received.")
 
-            # Encrypt the file using the user's public key
-            public_key_path = os.path.join(user_dir, "public_key.txt")
-            with open(public_key_path, "r") as pub_key_file:
-                public_key = pub_key_file.read()
+                # Encrypt the file using the user's public key
+                public_key_path = os.path.join(user_dir, "public_key.txt")
+                with open(public_key_path, "r") as pub_key_file:
+                    public_key = pub_key_file.read()
 
-            e, n = map(int, public_key.split(","))
-            encrypted_file_path = os.path.join(user_dir, f"{file_name}.enc")
-            encrypt_and_store_file(temp_file_path, (e, n), encrypted_file_path)
+                e, n = map(int, public_key.split(","))
+                encrypted_file_path = os.path.join(user_dir, f"{file_name}.enc")
+                encrypt_and_store_file(temp_file_path, (e, n), encrypted_file_path)
 
-            # Remove the plaintext file
-            os.remove(temp_file_path)
-            print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
+                # Remove the plaintext file
+                os.remove(temp_file_path)
+                print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
 
-        elif choice == "2":
-            print("Server: User chose to open a file.")
-            print("Server: Waiting for the user to choose a file.")
-            user_dir = username 
+            elif choice == "2":
+                print("Server: User chose to open a file.")
+                print("Server: Waiting for the user to choose a file.")
+                user_dir = username 
 
-            if os.path.exists(user_dir):
-                files = os.listdir(user_dir)
-                if files:
-                    file_list = "\n".join(files)
+                if os.path.exists(user_dir):
+                    files = os.listdir(user_dir)
+                    if files:
+                        file_list = "\n".join(files)
+                    else:
+                        file_list = "No files available."
                 else:
-                    file_list = "No files available."
+                    file_list = "User repository not found."
+
+                conn.send(file_list.encode())  # Send the list of files to the client
+
+                # Receive selected file from the client
+                selected_file = conn.recv(1024).decode()
+                file_path = os.path.join(user_dir, selected_file)
+
+            if os.path.exists(file_path):
+                encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
+                cobra = SimpleCOBRA(key_256)  # a remplacer
+                cobra.encrypt_file(file_path, encrypted_file_path)
+
+                with open(encrypted_file_path, "rb") as f:
+                    encrypted_content = f.read()
+
+                conn.send(encrypted_content)  # Send encrypted file content
+                print(f"Server: Encrypted file {encrypted_file_path} sent.")
+                os.remove(encrypted_file_path)
             else:
-                file_list = "User repository not found."
-
-            conn.send(file_list.encode())  # Send the list of files to the client
-
-            # Receive selected file from the client
-            selected_file = conn.recv(1024).decode()
-            file_path = os.path.join(user_dir, selected_file)
-
-        if os.path.exists(file_path):
-            encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
-            cobra = SimpleCOBRA(key_256)  # a remplacer
-            cobra.encrypt_file(file_path, encrypted_file_path)
-
-            with open(encrypted_file_path, "rb") as f:
-                encrypted_content = f.read()
-
-            conn.send(encrypted_content)  # Send encrypted file content
-            print(f"Server: Encrypted file {encrypted_file_path} sent.")
-            os.remove(encrypted_file_path)
-        else:
-            conn.send(b"File not found.")
+                conn.send(b"File not found.")
+            
+            continue_choice = conn.recv(1024).decode()
+            if continue_choice != "yes":
+                print("Server: Client chose to exit.")
+                break
     finally:
         return
