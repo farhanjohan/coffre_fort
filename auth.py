@@ -1,6 +1,5 @@
 import os
 import secrets
-import json
 from credentials import *
 
 class ZKPAuth:

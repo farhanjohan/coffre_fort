@@ -286,208 +286,210 @@ def server_connect(ipadd):
     print("#########################################################################")
     print(f"Server: Connected to {addr}")
     print("#########################################################################\n")
-
-    # Receive username and password
-    data = conn.recv(1024).decode()
-    username, password = data.split("::")
-    print("#########################################################################")
-    print(f"Server: Received credentials for {username}.")
-    print("#########################################################################\n")
-
-    user_credentials = credentials.load_user_credentials()
-    
-    if username not in user_credentials:
+    try :
+        # Receive username and password
+        data = conn.recv(1024).decode()
+        username, password = data.split("::")
         print("#########################################################################")
-        print(f"Server: User '{username}' does not exist. Creating a new one...")
-        print("#########################################################################\n")
-        conn.send("NEW_USER".encode())
-
-        # Receive the public key from the client
-        public_key_data = conn.recv(2048).decode()  # Adjust buffer size if needed
-        e, n = map(int, public_key_data.split(","))  # Parse the public key components
-        print("#########################################################################")
-        print(f"Server: Received public key for '{username}': e={e}, n={n}")
+        print(f"Server: Received credentials for {username}.")
         print("#########################################################################\n")
 
-        # Create a directory for the user 
-        os.makedirs(username, exist_ok=True)
-
-        # Save the public key in a text file in the user's directory
-        public_key_path = os.path.join(username, "public_key.txt")
-        with open(public_key_path, "w") as pub_file:
-            pub_file.write(public_key_data)
-        print("#########################################################################")
-        print(f"Server: Public key saved at: {public_key_path}")
-        print("#########################################################################\n")
-
-        # Update in-memory user credentials
-        user_credentials[username] = {
-            "password": password,
-            "public_key": (e, n),
-        }
-
-        # Save updated credentials to the JSON file
-        credentials.save_user_credentials(user_credentials)
-        print("#########################################################################")
-        print(f"Server: User credentials updated and saved for '{username}'.")
-        print("#########################################################################\n")
-
-    else:
-        conn.send("OLD_USER".encode())
-
-    # Derive the private key from the password
-    derived_key = sponge_hash(password)
-    zkp = ZKPAuth(derived_key, p=23, g=5)
-
-    # Receive the public key and commitment (M) from the client
-    data = conn.recv(1024).decode()
-    cle_publique, M = map(int, data.split(","))
-    print("#########################################################################")
-    print(f"Server: Received public key and Commitment: {M}")
-    print("#########################################################################\n")
-
-    # Generate and send a challenge to the client
-    challenge = secrets.randbelow(zkp.p - 1)
-    conn.sendall(str(challenge).encode())
-    print("#########################################################################")
-    print(f"Server: Sent challenge: {challenge}")
-    print("#########################################################################\n")
-
-    # Receive proof (preuve) from the client
-    preuve = int(conn.recv(1024).decode())
-    print("#########################################################################")
-    print(f"Server: Received proof: {preuve}")
-    print("#########################################################################\n")
-
-    # Verify proof
-    zkp.cle_publique = cle_publique
-    zkp.M = M
-    verification = zkp.verifier_preuve(challenge, preuve)
-
-    if verification:
-        conn.send("AUTH_SUCCESS".encode())
-        print("#########################################################################")
-        print(f"Server: User {username} authenticated.")
-        print("#########################################################################\n")
-    else:
-        conn.send("AUTH_FAIL".encode())
-        print("#########################################################################")
-        print(f"Server: Authentication failed for {username}.")
-        print("#########################################################################\n")
+        user_credentials = credentials.load_user_credentials()
         
-    ######### ON PEUT CHANGER LES P ET B ###########
-
-    prime = 23  # Public prime number
-    base = 5    # Public base
-
-    server_private_key = generate_private_key(prime)
-    server_public_key = compute_public_key(prime, base, server_private_key)
-
-    # Step 1: Send public key to client
-    conn.send(f"{prime},{base},{server_public_key}".encode())
-
-    # Step 2: Receive client's public key
-    client_public_key = int(conn.recv(1024).decode())
-    print("#########################################################################")
-    print(f"Server: Received client's public key: {client_public_key}")
-    print("#########################################################################\n")
-
-    # Step 3: Compute shared secret
-    shared_secret = compute_shared_secret(prime, client_public_key, server_private_key)
-    print("#########################################################################")
-    print(f"Server: Shared secret is {shared_secret}")
-    print("#########################################################################\n")
-    key_256 = derive_256_bit_key(shared_secret)
-
-    while True:
-        ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
-        shared_secret=str(shared_secret)
-        choice = conn.recv(1024)
-        ciphertext, hmac = pickle.loads(choice)
-        choice = (encryption.receive_message_dec(ciphertext,hmac,shared_secret)).decode()
-        
-        if choice == "1":
+        if username not in user_credentials:
             print("#########################################################################")
-            print("Server: Client chose to upload a file.")
+            print(f"Server: User '{username}' does not exist. Creating a new one...")
+            print("#########################################################################\n")
+            conn.send("NEW_USER".encode())
+
+            # Receive the public key from the client
+            public_key_data = conn.recv(2048).decode()  # Adjust buffer size if needed
+            e, n = map(int, public_key_data.split(","))  # Parse the public key components
+            print("#########################################################################")
+            print(f"Server: Received public key for '{username}': e={e}, n={n}")
             print("#########################################################################\n")
 
-            # Receive the file name
-            file_name = conn.recv(1024).decode()
+            # Create a directory for the user 
+            os.makedirs(username, exist_ok=True)
+
+            # Save the public key in a text file in the user's directory
+            public_key_path = os.path.join(username, "public_key.txt")
+            with open(public_key_path, "w") as pub_file:
+                pub_file.write(public_key_data)
             print("#########################################################################")
-            print(f"Server: Receiving file '{file_name}'.")
+            print(f"Server: Public key saved at: {public_key_path}")
             print("#########################################################################\n")
 
-            # Receive the file content
-            file_content = b""
-            while chunk := conn.recv(1024):
-                file_content += chunk
-                if len(chunk) < 1024:  # Assume end of file if chunk size < 1024
-                    break
+            # Update in-memory user credentials
+            user_credentials[username] = {
+                "password": password,
+                "public_key": (e, n),
+            }
 
-            # Save the file temporarily in memory
-            user_dir = username
-            os.makedirs(user_dir, exist_ok=True)  # Ensure the user's directory exists
-            temp_file_path = os.path.join(user_dir, file_name)
-            with open(temp_file_path, "wb") as temp_file:
-                temp_file.write(file_content)
-            print(f"Server: File '{file_name}' received.")
-
-            # Encrypt the file using the user's public key
-            public_key_path = os.path.join(user_dir, "public_key.txt")
-            with open(public_key_path, "r") as pub_key_file:
-                public_key = pub_key_file.read()
-
-            e, n = map(int, public_key.split(","))
-            encrypted_file_path = os.path.join(user_dir, f"{file_name}.enc")
-            encrypt_and_store_file(temp_file_path, (e, n), encrypted_file_path)
-
-            # Remove the plaintext file
-            os.remove(temp_file_path)
+            # Save updated credentials to the JSON file
+            credentials.save_user_credentials(user_credentials)
             print("#########################################################################")
-            print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
+            print(f"Server: User credentials updated and saved for '{username}'.")
             print("#########################################################################\n")
 
-        elif choice == "2":
-            print("#########################################################################")
-            print("Server: User chose to open a file.")
-            print("#########################################################################\n")
-            print("#########################################################################")
-            print("Server: Waiting for the user to choose a file.")
-            print("#########################################################################\n")
-            user_dir = username 
-
-            if os.path.exists(user_dir):
-                files = os.listdir(user_dir)
-                if files:
-                    file_list = "\n".join(files)
-                else:
-                    file_list = "No files available."
-            else:
-                file_list = "User repository not found."
-
-            conn.send(file_list.encode())  # Send the list of files to the client
-
-            # Receive selected file from the client
-            selected_file = conn.recv(1024).decode()
-            file_path = os.path.join(user_dir, selected_file)
-
-        if os.path.exists(file_path):
-            encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
-            cobra = SimpleCOBRA(key_256)  # a remplacer
-            cobra.encrypt_file(file_path, encrypted_file_path)
-
-            with open(encrypted_file_path, "rb") as f:
-                encrypted_content = f.read()
-
-            conn.send(encrypted_content)  # Send encrypted file content
-            print(f"Server: Encrypted file {encrypted_file_path} sent.")
-            os.remove(encrypted_file_path)
         else:
-            conn.send(b"File not found.")
-        
-        continue_choice = conn.recv(1024).decode()
-        if continue_choice != "yes":
+            conn.send("OLD_USER".encode())
+
+        # Derive the private key from the password
+        derived_key = sponge_hash(password)
+        zkp = ZKPAuth(derived_key, p=23, g=5)
+
+        # Receive the public key and commitment (M) from the client
+        data = conn.recv(1024).decode()
+        cle_publique, M = map(int, data.split(","))
+        print("#########################################################################")
+        print(f"Server: Received public key and Commitment: {M}")
+        print("#########################################################################\n")
+
+        # Generate and send a challenge to the client
+        challenge = secrets.randbelow(zkp.p - 1)
+        conn.sendall(str(challenge).encode())
+        print("#########################################################################")
+        print(f"Server: Sent challenge: {challenge}")
+        print("#########################################################################\n")
+
+        # Receive proof (preuve) from the client
+        preuve = int(conn.recv(1024).decode())
+        print("#########################################################################")
+        print(f"Server: Received proof: {preuve}")
+        print("#########################################################################\n")
+
+        # Verify proof
+        zkp.cle_publique = cle_publique
+        zkp.M = M
+        verification = zkp.verifier_preuve(challenge, preuve)
+
+        if verification:
+            conn.send("AUTH_SUCCESS".encode())
             print("#########################################################################")
-            print("Server: Client chose to exit.")
+            print(f"Server: User {username} authenticated.")
             print("#########################################################################\n")
-            break
+        else:
+            conn.send("AUTH_FAIL".encode())
+            print("#########################################################################")
+            print(f"Server: Authentication failed for {username}.")
+            print("#########################################################################\n")
+            
+        ######### ON PEUT CHANGER LES P ET B ###########
+
+        prime = 23  # Public prime number
+        base = 5    # Public base
+
+        server_private_key = generate_private_key(prime)
+        server_public_key = compute_public_key(prime, base, server_private_key)
+
+        # Step 1: Send public key to client
+        conn.send(f"{prime},{base},{server_public_key}".encode())
+
+        # Step 2: Receive client's public key
+        client_public_key = int(conn.recv(1024).decode())
+        print("#########################################################################")
+        print(f"Server: Received client's public key: {client_public_key}")
+        print("#########################################################################\n")
+
+        # Step 3: Compute shared secret
+        shared_secret = compute_shared_secret(prime, client_public_key, server_private_key)
+        print("#########################################################################")
+        print(f"Server: Shared secret is {shared_secret}")
+        print("#########################################################################\n")
+        key_256 = derive_256_bit_key(shared_secret)
+
+        while True:
+            ###### ENCRYPTED MESSAGE HASHMAC ET chiffrés avec une clé de session et chaque échange est authentifié avec un hashmac ######
+            shared_secret=str(shared_secret)
+            choice = conn.recv(1024)
+            ciphertext, hmac = pickle.loads(choice)
+            choice = (encryption.receive_message_dec(ciphertext,hmac,shared_secret)).decode()
+            
+            if choice == "1":
+                print("#########################################################################")
+                print("Server: Client chose to upload a file.")
+                print("#########################################################################\n")
+
+                # Receive the file name
+                file_name = conn.recv(1024).decode()
+                print("#########################################################################")
+                print(f"Server: Receiving file '{file_name}'.")
+                print("#########################################################################\n")
+
+                # Receive the file content
+                file_content = b""
+                while chunk := conn.recv(1024):
+                    file_content += chunk
+                    if len(chunk) < 1024:  # Assume end of file if chunk size < 1024
+                        break
+
+                # Save the file temporarily in memory
+                user_dir = username
+                os.makedirs(user_dir, exist_ok=True)  # Ensure the user's directory exists
+                temp_file_path = os.path.join(user_dir, file_name)
+                with open(temp_file_path, "wb") as temp_file:
+                    temp_file.write(file_content)
+                print(f"Server: File '{file_name}' received.")
+
+                # Encrypt the file using the user's public key
+                public_key_path = os.path.join(user_dir, "public_key.txt")
+                with open(public_key_path, "r") as pub_key_file:
+                    public_key = pub_key_file.read()
+
+                e, n = map(int, public_key.split(","))
+                encrypted_file_path = os.path.join(user_dir, f"{file_name}.enc")
+                encrypt_and_store_file(temp_file_path, (e, n), encrypted_file_path)
+
+                # Remove the plaintext file
+                os.remove(temp_file_path)
+                print("#########################################################################")
+                print(f"Server: File '{file_name}' encrypted and stored as '{encrypted_file_path}'.")
+                print("#########################################################################\n")
+
+            elif choice == "2":
+                print("#########################################################################")
+                print("Server: User chose to open a file.")
+                print("#########################################################################\n")
+                print("#########################################################################")
+                print("Server: Waiting for the user to choose a file.")
+                print("#########################################################################\n")
+                user_dir = username 
+
+                if os.path.exists(user_dir):
+                    files = os.listdir(user_dir)
+                    if files:
+                        file_list = "\n".join(files)
+                    else:
+                        file_list = "No files available."
+                else:
+                    file_list = "User repository not found."
+
+                conn.send(file_list.encode())  # Send the list of files to the client
+
+                # Receive selected file from the client
+                selected_file = conn.recv(1024).decode()
+                file_path = os.path.join(user_dir, selected_file)
+
+            if os.path.exists(file_path):
+                encrypted_file_path = os.path.join(user_dir, f"{selected_file}.cobra")
+                cobra = SimpleCOBRA(key_256)  # a remplacer
+                cobra.encrypt_file(file_path, encrypted_file_path)
+
+                with open(encrypted_file_path, "rb") as f:
+                    encrypted_content = f.read()
+
+                conn.send(encrypted_content)  # Send encrypted file content
+                print(f"Server: Encrypted file {encrypted_file_path} sent.")
+                os.remove(encrypted_file_path)
+            else:
+                conn.send(b"File not found.")
+            
+            continue_choice = conn.recv(1024).decode()
+            if continue_choice != "yes":
+                print("#########################################################################")
+                print("Server: Client chose to exit.")
+                print("#########################################################################\n")
+                break
+    finally:
+        return
