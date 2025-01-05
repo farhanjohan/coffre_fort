@@ -17,17 +17,12 @@ def clean_file_of_nulls(file_path):
         outfile.write(cleaned_content)
 
 def derive_256_bit_key(shared_secret):
-    """Derives a 256-bit key from the shared secret."""
     shared_secret_bytes = shared_secret.to_bytes((shared_secret.bit_length() + 7) // 8, byteorder="big")
     while len(shared_secret_bytes) < 32:  # Ensure at least 32 bytes (256 bits)
         shared_secret_bytes += shared_secret_bytes  # Repeat bytes if too short
     return shared_secret_bytes[:32]  # Trim to 256 bits (32 bytes)
 
 def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
-    """
-    Decrypts an RSA-encrypted file and writes the plaintext to the output path.
-    Handles padding and chunk concatenation correctly.
-    """
     d, n = private_key
     chunk_size = (n.bit_length() + 7) // 8  # RSA block size for decryption
     decrypted_data = []
@@ -50,15 +45,9 @@ def decrypt_and_store_file(encrypted_file_path, private_key, output_path):
     print(f"Decrypted file saved at {output_path}.")
     clean_file_of_nulls(output_path)
 
-
 def encrypt_and_store_file(file_path, public_key, output_path):
-    """
-    Encrypts a file using RSA and writes the ciphertext to the output path.
-    Handles padding and chunking consistently with the decryption logic.
-    """
     e, n = public_key
     max_chunk_size = n.bit_length() // 8 - 1  # Maximum plaintext size per RSA block
-
     with open(file_path, "rb") as infile, open(output_path, "wb") as outfile:
         while chunk := infile.read(max_chunk_size):  # Read plaintext chunks
             chunk_int = int.from_bytes(chunk, byteorder="big")  # Convert to integer
@@ -67,7 +56,6 @@ def encrypt_and_store_file(file_path, public_key, output_path):
             outfile.write(encrypted_chunk)
 
     print(f"File encrypted and stored at {output_path}.")
-
 
 def generate_private_key(prime):
     """Génère une clé privée aléatoire."""
@@ -81,10 +69,9 @@ def compute_shared_secret(prime, public_key, private_key):
     """Calcule le secret partagé."""
     return pow(public_key, private_key, prime)
 
-def client_connect(ipadd,port):
-
+def client_connect(ipadd):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((ipadd, 6000))  # Connect to server at localhost:6000
+    client.connect((ipadd, 6000))  # Connect to server at :6000
     print("Connected to the server.")
 
     username = input("Enter username: ")
@@ -93,27 +80,41 @@ def client_connect(ipadd,port):
 
     response = client.recv(1024).decode()
     if response == "NEW_USER":
-        print("New user detected. initiate creation")
+        print("New user detected. Initiating creation...")
 
-        # Receive public and private keys from the server
-        keys_data = client.recv(2048)  # Adjust size as needed
-        public_key_data, private_key_data = keys_data.split(b"::")
-
-        # Create a directory for the user
+        # Create a directory for the user locally
         os.makedirs(username, exist_ok=True)
+
+        # Generate RSA keys
+        p = encryption.generate_large_prime()
+        q = encryption.generate_large_prime()
+        n = p * q
+        phi = (p - 1) * (q - 1)
+
+        # Public key (e, n)
+        e = 65537
+        while encryption.gcd(e, phi) != 1:
+            e += 2
+
+        # Private key (d, n)
+        d = encryption.mod_inverse(e, phi)
+
+        # Save keys locally
         public_key_path = os.path.join(username, "public_key.txt")
         private_key_path = os.path.join(username, "private_key.txt")
 
-        # Save the keys locally
-        with open(public_key_path, "wb") as pub:
-            pub.write(public_key_data)
-        with open(private_key_path, "wb") as priv:
-            priv.write(private_key_data)
-        print(f"Keys saved successfully in '{username}' directory.")
+        with open(public_key_path, "w") as pub:
+            pub.write(f"{e},{n}")
+        with open(private_key_path, "w") as priv:
+            priv.write(f"{d},{n}")
 
-        # Send acknowledgment to the server
-        client.send("KEYS_RECEIVED".encode())
+        print("Keys generated successfully!")
 
+        # Send public key to the server
+        with open(public_key_path, "r") as pub:
+            public_key_data = pub.read()
+        client.send(public_key_data.encode())
+        print("Public key sent to the server.")
 
     # Derive the private key from the password
     derived_key = sponge_hash(password)
@@ -232,8 +233,7 @@ def client_connect(ipadd,port):
             os.remove(intermediate_file)
             print(f"File decrypted and saved as {decrypted_file_path}.")
 
-
-def server_connect(ipadd,port):
+def server_connect(ipadd):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((ipadd,6000))  # Bind to port 
     server.listen(1)
@@ -251,58 +251,34 @@ def server_connect(ipadd,port):
         user_credentials = credentials.load_user_credentials()
         
         if username not in user_credentials:
-            print(f"User '{username}' does not exist, creating a new one.")
+            print(f"User '{username}' does not exist. Creating a new one...")
             conn.send("NEW_USER".encode())
+
+            # Receive the public key from the client
+            public_key_data = conn.recv(2048).decode()  # Adjust buffer size if needed
+            e, n = map(int, public_key_data.split(","))  # Parse the public key components
+            print(f"Received public key for '{username}': e={e}, n={n}")
+
+            # Create a directory for the user 
             os.makedirs(username, exist_ok=True)
 
-            # Generate RSA keys
-            p = encryption.generate_large_prime()
-            q = encryption.generate_large_prime()
-            n = p * q
-            phi = (p - 1) * (q - 1)
+            # Save the public key in a text file in the user's directory
+            public_key_path = os.path.join(username, "public_key.txt")
+            with open(public_key_path, "w") as pub_file:
+                pub_file.write(public_key_data)
+            print(f"Public key saved at: {public_key_path}")
 
-            # Public key (e, n)
-            e = 65537
-            while encryption.gcd(e, phi) != 1:
-                e += 2
-
-            # Private key (d, n)
-            d = encryption.mod_inverse(e, phi)
-
-            # Save keys locally
-            public_key_path = f"{username}/public_key.txt"
-            private_key_path = f"{username}/private_key.txt"
-            with open(public_key_path, "w") as pub:
-                pub.write(f"{e},{n}")
-            with open(private_key_path, "w") as priv:
-                priv.write(f"{d},{n}")
-            print("Keys generated successfully!")
-
-            # Add to in-memory dictionary
+            # Update in-memory user credentials
             user_credentials[username] = {
                 "password": password,
                 "public_key": (e, n),
-                "private_key": (d, n),
             }
 
-            # Save to JSON file
+            # Save updated credentials to the JSON file
             credentials.save_user_credentials(user_credentials)
-            print(f"User credentials saved for '{username}'.")
+            print(f"User credentials updated and saved for '{username}'.")
 
-            # Send public and private keys to the client
-            print("Sending keys to the client...")
-            with open(public_key_path, "rb") as pub:
-                public_key_data = pub.read()
-            with open(private_key_path, "rb") as priv:
-                private_key_data = priv.read()
-            conn.sendall(public_key_data + b"::" + private_key_data)
-
-            # Wait for acknowledgment from client
-            ack = conn.recv(1024).decode()
-            if ack == "KEYS_RECEIVED":
-                print("Client confirmed key receipt. Deleting private key from server...")
-                os.remove(private_key_path)  # Delete private key
-        else :
+        else:
             conn.send("OLD_USER".encode())
 
         # Derive the private key from the password
@@ -440,5 +416,3 @@ def server_connect(ipadd,port):
     finally:
         return
         #server.close()
-
-
